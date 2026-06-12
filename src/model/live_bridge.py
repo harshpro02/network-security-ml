@@ -1,5 +1,11 @@
 from scapy.all import sniff, IP, TCP, UDP
 import time
+import joblib
+import pandas as pd
+import numpy as np
+
+model = joblib.load("models/attack_detector.joblib")
+columns = pd.read_csv("data/processed/clean_for_training.csv", nrows=0).columns.drop('Label')
 
 flows = {}
 
@@ -43,12 +49,27 @@ def flow_to_features(packets):
     
     return duration, packet_count, total_bytes, avg_size
 
+def make_feature_vector(duration, packet_count, total_bytes, avg_size):
+    vec = pd.DataFrame(np.zeros((1, len(columns))), columns=columns)
+    
+    vec['Flow Duration'] = duration * 1_000_000
+    vec['Total Fwd Packets'] = packet_count
+    vec['Total Length of Fwd Packets'] = total_bytes
+    vec['Average Packet Size'] = avg_size
+    
+    return vec
+
 print("Capturing packets for 30 seconds...")
 sniff(prn=process_packet, timeout=30)
 print(f"Captured {len(flows)} flows")
 
-print("\n=== TOP 5 FLOWS ===")
-sorted_flows = sorted(flows.items(), key=lambda x: len(x[1]), reverse=True)
-for key, packets in sorted_flows[:5]:
+print("\n=== LIVE VERDICTS ===")
+for key, packets in flows.items():
+    if len(packets) < 5:
+        continue
+    
     duration, count, total_bytes, avg_size = flow_to_features(packets)
-    print(f"{key[0]} -> {key[1]} | {count} packets | {total_bytes} bytes | avg {avg_size:.0f}B | {duration:.1f}s")
+    vec = make_feature_vector(duration, count, total_bytes, avg_size)
+    verdict = model.predict(vec)[0]
+    
+    print(f"{key[0]} -> {key[1]} | {count} pkts | {verdict}")
