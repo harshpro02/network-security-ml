@@ -4,9 +4,8 @@ import joblib
 import pandas as pd
 import numpy as np
 
-model = joblib.load("models/attack_detector.joblib")
-columns = pd.read_csv("data/processed/clean_for_training.csv", nrows=0).columns.drop('Label')
-
+model = joblib.load("models/live_detector.joblib")
+live_features = ['Flow Duration', 'Total Fwd Packets', 'Total Length of Fwd Packets', 'Average Packet Size']
 flows = {}
 
 def get_flow_key(packet):
@@ -50,12 +49,12 @@ def flow_to_features(packets):
     return duration, packet_count, total_bytes, avg_size
 
 def make_feature_vector(duration, packet_count, total_bytes, avg_size):
-    vec = pd.DataFrame(np.zeros((1, len(columns))), columns=columns)
-    
-    vec['Flow Duration'] = duration * 1_000_000
-    vec['Total Fwd Packets'] = packet_count
-    vec['Total Length of Fwd Packets'] = total_bytes
-    vec['Average Packet Size'] = avg_size
+    vec = pd.DataFrame([[
+        duration * 1_000_000,
+        packet_count,
+        total_bytes,
+        avg_size
+    ]], columns=live_features)
     
     return vec
 
