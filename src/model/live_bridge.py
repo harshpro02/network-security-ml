@@ -58,17 +58,21 @@ def make_feature_vector(duration, packet_count, total_bytes, avg_size):
     
     return vec
 
-print("Capturing packets for 30 seconds...")
-sniff(prn=process_packet, timeout=30)
-print(f"Captured {len(flows)} flows")
+def run_capture():
+    print("Capturing packets for 30 seconds...")
+    sniff(prn=process_packet, timeout=30)
+    print(f"Captured {len(flows)} flows")
 
-print("\n=== LIVE VERDICTS ===")
-for key, packets in flows.items():
-    if len(packets) < 5:
-        continue
-    
-    duration, count, total_bytes, avg_size = flow_to_features(packets)
-    vec = make_feature_vector(duration, count, total_bytes, avg_size)
-    verdict = model.predict(vec)[0]
-    
-    print(f"{key[0]} -> {key[1]} | {count} pkts | {verdict}")
+    print("\n=== LIVE VERDICTS ===")
+    for key, packets in flows.items():
+        if len(packets) < 5:
+            continue
+        
+        duration, count, total_bytes, avg_size = flow_to_features(packets)
+        vec = make_feature_vector(duration, count, total_bytes, avg_size)
+        verdict = model.predict(vec)[0]
+        
+        print(f"{key[0]} -> {key[1]} | {count} pkts | {verdict}")
+
+if __name__ == "__main__":
+    run_capture()
