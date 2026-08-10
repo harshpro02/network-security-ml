@@ -1,0 +1,8 @@
+.git/
+venv/
+data/
+__pycache__/
+**/__pycache__/
+*.pyc
+models/attack_detector.joblib
+README.md

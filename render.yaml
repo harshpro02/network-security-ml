@@ -1,0 +1,13 @@
+# Render blueprint. Point Render at this repo and it builds the Dockerfile.
+services:
+  - type: web
+    name: guardian
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      # A container has no interface worth sniffing, so live capture is off
+      # and /api/scan returns a clear 503 instead of a permission error.
+      - key: ALLOW_LIVE_CAPTURE
+        value: "0"
