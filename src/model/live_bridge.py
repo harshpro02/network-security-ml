@@ -58,10 +58,12 @@ class FlowTable:
 
     def __init__(self, flow_timeout=FLOW_TIMEOUT):
         self.flow_timeout = flow_timeout
+        self.packets_seen = 0   # every packet offered, including non-IP ones
         self._open = {}     # key -> packets of the flow currently being built
         self._closed = []   # (key, packets) for flows that have ended
 
     def add(self, packet):
+        self.packets_seen += 1
         key = get_flow_key(packet)
         if key is None:
             return
@@ -87,10 +89,27 @@ class FlowTable:
         self._open = {}
         return finished
 
+def payload_size(packet):
+    """Transport payload bytes, which is what CICFlowMeter counted.
+
+    This is not the same as len(packet). CICIDS2017 records a bare SYN as 0
+    bytes; the full frame is 56. Using frame length inflated every small flow
+    by roughly a header's worth and pushed captured port-scan traffic
+    (median 56 bytes) on top of the benign cluster (median 66) instead of
+    the PortScan cluster (median 0).
+    """
+    if TCP in packet:
+        return len(packet[TCP].payload)
+    if UDP in packet:
+        return len(packet[UDP].payload)
+    if IP in packet:
+        return len(packet[IP].payload)
+    return len(packet)
+
 def flow_to_features(packets):
     times = [float(p.time) for p in packets]
-    sizes = [len(p) for p in packets]
-    
+    sizes = [payload_size(p) for p in packets]
+
     duration = max(times) - min(times)
     packet_count = len(packets)
     total_bytes = sum(sizes)

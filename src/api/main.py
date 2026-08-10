@@ -85,6 +85,7 @@ def scan():
     return {
         "source": "live",
         "capture_seconds": CAPTURE_SECONDS,
+        "packets_read": table.packets_seen,
         "flows": results,
         "flow_count": len(results),
         "threat_count": sum(1 for r in results if r["is_threat"]),

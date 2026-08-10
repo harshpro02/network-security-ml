@@ -30,16 +30,23 @@ from src.model.live_bridge import classify_flows, group_packets  # noqa: E402
 DEFAULT_PORTS = list(range(1, 1025))
 
 
-def local_ip():
-    """Best guess at this machine's LAN address."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("10.255.255.255", 1))   # no packets are actually sent
-        return s.getsockname()[0]
-    except OSError:
-        return "127.0.0.1"
-    finally:
-        s.close()
+# Traffic to this machine's own LAN address is routed internally and never
+# reaches the Wi-Fi adapter, so a scan aimed there captures almost nothing.
+# Scanning loopback and capturing on the loopback interface sees every packet.
+LOOPBACK_IFACES = ("Loopback Pseudo-Interface 1", "\\Device\\NPF_Loopback", "lo")
+
+
+def pick_iface(target, override=None):
+    if override:
+        return override
+    if not ipaddress.ip_address(target).is_loopback:
+        return None                      # default interface
+    from scapy.all import get_working_ifaces
+    names = {i.name for i in get_working_ifaces()}
+    for candidate in LOOPBACK_IFACES:
+        if candidate in names:
+            return candidate
+    sys.exit("No loopback capture interface found. Pass --iface explicitly.")
 
 
 def check_target(target):
@@ -73,17 +80,20 @@ def scan(target, ports, delay=0.002):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--target", default=None, help="defaults to this machine")
+    ap.add_argument("--target", default="127.0.0.1", help="defaults to loopback")
+    ap.add_argument("--iface", default=None, help="capture interface (auto for loopback)")
     ap.add_argument("--ports", type=int, default=1024, help="scan ports 1..N (default 1024)")
     ap.add_argument("--out", default=str(REPO_ROOT / "demo" / "demo_capture.pcap"))
     args = ap.parse_args()
 
-    target = check_target(args.target or local_ip())
+    target = check_target(args.target)
+    iface = pick_iface(target, args.iface)
     ports = list(range(1, args.ports + 1))
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"target      {target}")
+    print(f"interface   {iface or 'default'}")
     print(f"ports       1-{args.ports}")
     print(f"output      {out}")
     print()
@@ -93,7 +103,7 @@ def main():
 
     def capture():
         try:
-            sniff(prn=captured.append, filter=f"host {target}",
+            sniff(prn=captured.append, filter=f"host {target}", iface=iface,
                   stop_filter=lambda _: stop.is_set(), store=False)
         except PermissionError:
             print("ERROR: packet capture needs administrator privileges.")

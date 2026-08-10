@@ -96,6 +96,44 @@ bridge originally never closed flows at all, so a long conversation grew into on
 enormous flow that looked like nothing in the training set. `FlowTable` now matches
 CICFlowMeter's rules.
 
+**Payload bytes, not frame bytes.** Found by running a real scan through the pipeline —
+see the section below. Every flow's size was being overstated by a header's worth.
+
+## What happened when it met a real attack
+
+The numbers above all come from CICIDS2017 rows. `scripts/record_demo.py` runs a real
+1,024-port TCP connect scan against loopback, captures it with the project's own code,
+and scores it. That is the only test that exercises the whole pipeline end to end.
+
+**It caught 3 of 2,050 scan flows.**
+
+Chasing that down found a third train–serve mismatch, and the most subtle one. Median
+values for a single scanned port:
+
+| | our capture | CICIDS2017 PortScan | CICIDS2017 BENIGN |
+|---|---|---|---|
+| total bytes | 56 | 0 | 66 |
+| avg packet size | 48 | 3 | 74.25 |
+
+`flow_to_features` measured `len(packet)` — the whole frame, headers included.
+CICFlowMeter counted transport payload only, which is why a bare SYN is recorded as
+0 bytes there. Every small flow was being inflated by roughly a header, landing our
+scan traffic on top of the benign cluster instead of the PortScan cluster.
+
+Switching to payload bytes is definitionally correct and measurably better: detections
+went 0 → 3, the two named ones came back as `PortScan`, and false positives on real
+benign captures went down, not up.
+
+But 3 out of 2,050 is still a failure, and the reason is structural. A single SYN to a
+closed port is four numbers: near-zero duration, one packet, zero bytes, zero average.
+A single benign packet looks the same. **Nothing in a per-flow feature vector can
+separate them.** What identifies a port scan is that one host touched a thousand ports
+in a minute — a property of the set of flows, not of any flow in it.
+
+So the honest claim for this project is narrower than "intrusion detection." It detects
+the volume- and duration-shaped attacks in CICIDS2017. It does not detect port scans in
+the field, whatever the 0.99 test-set precision on `PortScan` suggests.
+
 ## Known limitations
 
 Worth stating plainly, because they are real.
@@ -103,9 +141,10 @@ Worth stating plainly, because they are real.
 - **The accuracy figures are optimistic.** The split is random, and CICIDS2017 attack
   flows arrive in bursts of near-identical records, so near-duplicates land on both
   sides. A day-held-out split would be the honest test and is not done yet.
-- **Not validated end to end on real attack traffic.** Every number here comes from
-  CICIDS2017 rows. `scripts/record_demo.py` exists to close that gap and has not been
-  run yet.
+- **Test-set precision does not survive contact with live traffic.** See above: 0.99 on
+  held-out `PortScan` rows, 3/2050 on a scan this code captured itself.
+- **No cross-flow context.** Detecting scans, sweeps or beaconing needs features over a
+  group of flows (distinct ports per source per minute). Everything here is per-flow.
 - **Four features is a low ceiling.** Many more are computable from raw packets —
   destination port, packet-length statistics, inter-arrival times, TCP flag counts.
   Destination port alone would likely fix the FTP-Patator and SSH-Patator confusion.

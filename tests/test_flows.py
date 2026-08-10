@@ -105,7 +105,15 @@ class TestFeatures:
         _, count, total, avg = flow_to_features([packet(payload=100), packet(payload=200)])
         assert total == pytest.approx(count * avg)
 
-    def test_average_uses_full_frame_length(self):
-        # 100 bytes of payload plus IP and TCP headers, not just the payload.
+    def test_size_counts_payload_not_frame(self):
+        # CICFlowMeter counts transport payload, so headers must not be
+        # included - otherwise small flows drift into the benign cluster.
         _, _, total, _ = flow_to_features([packet(payload=100)])
-        assert total > 100
+        assert total == 100
+
+    def test_bare_syn_counts_as_zero_bytes(self):
+        # A SYN carries no payload. CICIDS2017 records these as 0, and a
+        # port scan is made almost entirely of them.
+        _, _, total, avg = flow_to_features([packet(payload=0, flags="S")])
+        assert total == 0
+        assert avg == 0

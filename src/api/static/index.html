@@ -95,6 +95,7 @@
   td.v.ok  { color: var(--good); }
   td.v.bad { color: var(--critical); }
 
+  .more { color: var(--muted); font-size: 11.5px; padding-top: 10px; }
   .warn { color: var(--muted); font-size: 12.5px; border-left: 2px solid var(--accent); padding-left: 12px; }
   .warn b { color: var(--ink-2); font-weight: 700; }
   footer { color: var(--muted); font-size: 11.5px; line-height: 1.75; }
@@ -136,6 +137,7 @@
 
 <script>
 const PROTO = { 1: "ICMP", 6: "TCP", 17: "UDP" };
+const ROW_CAP = 60;
 const BTNS = ["btn-demo", "btn-upload", "btn-scan"];
 const $ = id => document.getElementById(id);
 let liveOff = false;
@@ -181,8 +183,12 @@ function render(d) {
     ? `${flows.length} conversation${flows.length === 1 ? "" : "s"} scored, none match known attack patterns`
     : `${bad} of ${flows.length} conversations match patterns learned from known attacks`;
 
-  const rows = [...flows]
-    .sort((a, b) => (b.is_threat - a.is_threat) || (b.packets - a.packets))
+  // A scan produces thousands of one-packet flows. Flagged ones first, then
+  // the busiest, capped so the table stays readable.
+  const ordered = [...flows].sort((a, b) => (b.is_threat - a.is_threat) || (b.packets - a.packets));
+  const shown = ordered.slice(0, ROW_CAP);
+
+  const rows = shown
     .map(f => `<tr>
       <td>${esc(f.source)}:${f.src_port}</td>
       <td>${esc(f.destination)}:${f.dst_port}</td>
@@ -216,7 +222,10 @@ function render(d) {
       <thead><tr><th>src</th><th>dst</th><th>proto</th>
       <th class="n">pkts</th><th class="n">bytes</th><th class="n">dur</th><th class="n">verdict</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table></div>`;
+    </table></div>
+    ${ordered.length > shown.length
+      ? `<div class="more">showing ${shown.length} of ${ordered.length} flows &middot; flagged first, then busiest</div>`
+      : ""}`;
 }
 
 async function call(id, url, opts, msg) {
