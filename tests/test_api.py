@@ -1,4 +1,3 @@
-"""API behaviour, with the focus on untrusted upload handling."""
 import io
 
 import pytest
@@ -13,7 +12,6 @@ client = TestClient(app)
 
 @pytest.fixture
 def pcap_bytes(tmp_path):
-    """A small, valid capture: one busy flow and one quiet one."""
     packets = []
     for i in range(20):
         p = IP(src="10.0.0.5", dst="10.0.0.9") / TCP(sport=4444, dport=80) / (b"x" * 400)
@@ -30,7 +28,10 @@ def pcap_bytes(tmp_path):
 
 
 def upload(data, filename="sample.pcap"):
-    return client.post("/api/analyze", files={"file": (filename, io.BytesIO(data), "application/octet-stream")})
+    return client.post(
+        "/api/analyze",
+        files={"file": (filename, io.BytesIO(data), "application/octet-stream")},
+    )
 
 
 class TestBasics:
@@ -64,7 +65,6 @@ class TestAnalyse:
             }
             assert flow["verdict"] in {"BENIGN", "ATTACK"}
             assert flow["is_threat"] == (flow["verdict"] == "ATTACK")
-            # A type is only ever named on a flow that was actually flagged.
             assert flow["attack_type"] is None or flow["is_threat"]
 
     def test_verdict_is_json_native_not_numpy(self, pcap_bytes):
@@ -72,6 +72,26 @@ class TestAnalyse:
         assert isinstance(flow["verdict"], str)
         assert isinstance(flow["is_threat"], bool)
         assert isinstance(flow["packets"], int)
+
+    def test_flagged_flows_are_returned_first(self, pcap_bytes):
+        flows = upload(pcap_bytes).json()["flows"]
+        threats = [i for i, f in enumerate(flows) if f["is_threat"]]
+        if threats:
+            assert threats == list(range(len(threats)))
+
+    def test_flow_list_is_capped_but_counts_are_not(self, tmp_path):
+        packets = []
+        for port in range(1, main.MAX_FLOWS_RETURNED + 60):
+            p = IP(src="10.0.0.5", dst="10.0.0.9") / TCP(sport=40000 + port, dport=port, flags="S")
+            p.time = 1_700_000_000.0 + port * 0.001
+            packets.append(p)
+        path = tmp_path / "scan.pcap"
+        wrpcap(str(path), packets)
+
+        body = upload(path.read_bytes()).json()
+        assert body["flow_count"] == len(packets)
+        assert body["flows_returned"] == main.MAX_FLOWS_RETURNED
+        assert len(body["flows"]) == main.MAX_FLOWS_RETURNED
 
     def test_rejects_wrong_extension(self, pcap_bytes):
         assert upload(pcap_bytes, "notes.txt").status_code == 400
@@ -86,13 +106,10 @@ class TestAnalyse:
     def test_rejects_unparseable_file(self):
         res = upload(b"this is definitely not a pcap")
         assert res.status_code == 400
-        # The parser's own error text must not leak to the caller.
         assert "scapy" not in res.text.lower()
         assert "traceback" not in res.text.lower()
 
     def test_accepts_pcapng_extension(self, pcap_bytes):
-        # Wrong container for the bytes, so it fails to parse - but on
-        # content, not on the extension check.
         assert upload(pcap_bytes, "x.pcapng").status_code in (200, 400)
 
 

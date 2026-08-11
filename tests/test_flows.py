@@ -1,9 +1,3 @@
-"""Flow grouping and expiry.
-
-These are the rules that have to match CICFlowMeter, which built the
-CICIDS2017 rows the model was trained on. If they drift, the features
-computed live stop meaning what they meant in training.
-"""
 import pytest
 from scapy.all import IP, TCP, UDP
 
@@ -51,21 +45,18 @@ class TestExpiry:
         assert len(flows[0][1]) == 3
 
     def test_flow_splits_once_past_the_timeout(self):
-        # 121s after the first packet, so a new flow must start.
         flows = flows_from([packet(t=0), packet(t=121)])
         assert len(flows) == 2
         assert all(len(packets) == 1 for _, packets in flows)
 
     def test_timeout_is_measured_from_flow_start_not_last_packet(self):
-        # Steady traffic every 100s: gaps are under the timeout, but the
-        # flow's own age crosses it, so it still has to roll over.
         flows = flows_from([packet(t=0), packet(t=100), packet(t=200)])
         assert len(flows) == 2
 
     def test_fin_closes_the_flow(self):
         flows = flows_from([packet(t=0), packet(t=1, flags="FA"), packet(t=2)])
         assert len(flows) == 2
-        assert len(flows[0][1]) == 2   # up to and including the FIN
+        assert len(flows[0][1]) == 2
 
     def test_rst_closes_the_flow(self):
         flows = flows_from([packet(t=0), packet(t=1, flags="R"), packet(t=2)])
@@ -88,6 +79,12 @@ class TestExpiry:
         assert len(a.finish()) == 1
         assert len(b.finish()) == 1
 
+    def test_packets_seen_counts_everything_offered(self):
+        table = FlowTable()
+        table.add(packet())
+        table.add(TCP())
+        assert table.packets_seen == 2
+
 
 class TestFeatures:
     def test_duration_spans_first_to_last_packet(self):
@@ -106,14 +103,10 @@ class TestFeatures:
         assert total == pytest.approx(count * avg)
 
     def test_size_counts_payload_not_frame(self):
-        # CICFlowMeter counts transport payload, so headers must not be
-        # included - otherwise small flows drift into the benign cluster.
         _, _, total, _ = flow_to_features([packet(payload=100)])
         assert total == 100
 
     def test_bare_syn_counts_as_zero_bytes(self):
-        # A SYN carries no payload. CICIDS2017 records these as 0, and a
-        # port scan is made almost entirely of them.
         _, _, total, avg = flow_to_features([packet(payload=0, flags="S")])
         assert total == 0
         assert avg == 0

@@ -27,13 +27,11 @@
   .wrap { max-width: 880px; margin: 0 auto; padding: 34px 22px 64px; }
   .rule { border-top: 1px solid var(--line); margin: 16px 0; }
 
-  /* header */
   .title { font-size: 15px; font-weight: 700; letter-spacing: .5px; color: var(--ink); }
   .title::before { content: "$ "; color: var(--accent); font-weight: 400; }
   .sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
   .sub b { color: var(--ink-2); font-weight: 400; }
 
-  /* command row */
   .cmds { display: flex; gap: 6px; flex-wrap: wrap; }
   button {
     background: none; color: var(--ink-2); border: 1px solid var(--line-hi);
@@ -48,7 +46,6 @@
   button:disabled { opacity: .35; cursor: not-allowed; }
   button.on { color: var(--accent); border-color: var(--line-hi); }
 
-  /* status line */
   #status { color: var(--muted); font-size: 12.5px; min-height: 20px; }
   #status::before { content: "> "; color: var(--line-hi); }
   #status.working::after {
@@ -56,7 +53,6 @@
   }
   @keyframes blink { 50% { opacity: 0; } }
 
-  /* readout */
   .readout { display: grid; grid-template-columns: 88px 1fr; gap: 3px 14px; font-size: 13px; }
   .readout dt { color: var(--muted); text-transform: uppercase; letter-spacing: .7px; font-size: 11.5px; padding-top: 2px; }
   .readout dd { margin: 0; color: var(--ink-2); }
@@ -68,7 +64,6 @@
   .state.bad::before { content: "!!"; padding: 0 5px; border: 1px solid var(--critical); font-size: 10.5px; }
   .detail { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
 
-  /* proportion bar */
   .bar { display: flex; height: 5px; gap: 2px; margin: 4px 0 6px; background: var(--line); }
   .bar span { display: block; height: 100%; }
   .bar .ok  { background: var(--good); }
@@ -79,7 +74,6 @@
   .keys .k-bad { background: var(--critical); }
   .keys span + span { margin-left: 16px; }
 
-  /* table */
   .scroll { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
   th {
@@ -174,17 +168,16 @@ function render(d) {
     return;
   }
 
-  const ok = flows.length - bad;
-  const pct = (bad / flows.length) * 100;
+  const total = d.flow_count ?? flows.length;
+  const ok = total - bad;
+  const pct = (bad / total) * 100;
   const clear = bad === 0;
 
   const headline = clear ? "clean" : `${bad} flow${bad === 1 ? "" : "s"} flagged`;
   const detail = clear
-    ? `${flows.length} conversation${flows.length === 1 ? "" : "s"} scored, none match known attack patterns`
-    : `${bad} of ${flows.length} conversations match patterns learned from known attacks`;
+    ? `${total} conversation${total === 1 ? "" : "s"} scored, none match known attack patterns`
+    : `${bad} of ${total} conversations match patterns learned from known attacks`;
 
-  // A scan produces thousands of one-packet flows. Flagged ones first, then
-  // the busiest, capped so the table stays readable.
   const ordered = [...flows].sort((a, b) => (b.is_threat - a.is_threat) || (b.packets - a.packets));
   const shown = ordered.slice(0, ROW_CAP);
 
@@ -207,7 +200,7 @@ function render(d) {
       <dt>status</dt>
       <dd><span class="state ${clear ? "ok" : "bad"}">${headline}</span>
           <div class="detail">${detail}</div></dd>
-      <dt>flows</dt><dd>${flows.length} scored &middot; ${bad} flagged &middot; ${pct.toFixed(pct % 1 ? 1 : 0)}%</dd>
+      <dt>flows</dt><dd>${total} scored &middot; ${bad} flagged &middot; ${pct.toFixed(pct % 1 ? 1 : 0)}%</dd>
       <dt>packets</dt><dd>${(d.packets_read || 0).toLocaleString()}</dd>
       <dt>source</dt><dd>${src}</dd>
     </dl>
@@ -223,8 +216,8 @@ function render(d) {
       <th class="n">pkts</th><th class="n">bytes</th><th class="n">dur</th><th class="n">verdict</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
-    ${ordered.length > shown.length
-      ? `<div class="more">showing ${shown.length} of ${ordered.length} flows &middot; flagged first, then busiest</div>`
+    ${total > shown.length
+      ? `<div class="more">showing ${shown.length} of ${total} scored flows &middot; flagged first, then busiest</div>`
       : ""}`;
 }
 

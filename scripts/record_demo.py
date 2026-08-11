@@ -1,17 +1,3 @@
-"""Record a demo capture containing real port-scan traffic.
-
-Runs a TCP connect scan against your own machine while sniffing, then saves
-the result to demo/demo_capture.pcap and prints what the detector makes of it.
-
-This exists to answer a question the CICIDS2017 numbers cannot: does the
-detector actually fire on traffic our own code captured and featurised?
-
-    # Windows: run from an Administrator terminal (packet capture needs it)
-    python scripts/record_demo.py
-
-The target defaults to this machine and is refused unless it is a private or
-loopback address, so this cannot be pointed at someone else's network.
-"""
 import argparse
 import ipaddress
 import socket
@@ -27,12 +13,6 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.model.live_bridge import classify_flows, group_packets  # noqa: E402
 
-DEFAULT_PORTS = list(range(1, 1025))
-
-
-# Traffic to this machine's own LAN address is routed internally and never
-# reaches the Wi-Fi adapter, so a scan aimed there captures almost nothing.
-# Scanning loopback and capturing on the loopback interface sees every packet.
 LOOPBACK_IFACES = ("Loopback Pseudo-Interface 1", "\\Device\\NPF_Loopback", "lo")
 
 
@@ -40,7 +20,7 @@ def pick_iface(target, override=None):
     if override:
         return override
     if not ipaddress.ip_address(target).is_loopback:
-        return None                      # default interface
+        return None
     from scapy.all import get_working_ifaces
     names = {i.name for i in get_working_ifaces()}
     for candidate in LOOPBACK_IFACES:
@@ -50,7 +30,6 @@ def pick_iface(target, override=None):
 
 
 def check_target(target):
-    """Only ever scan our own machine or a private address."""
     try:
         addr = ipaddress.ip_address(target)
     except ValueError:
@@ -61,8 +40,6 @@ def check_target(target):
 
 
 def scan(target, ports, delay=0.002):
-    """A plain TCP connect scan. Most ports will refuse, which is the point -
-    a burst of tiny short-lived flows is exactly the PortScan signature."""
     opened = []
     for port in ports:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -79,7 +56,8 @@ def scan(target, ports, delay=0.002):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(
+        description="Record a demo capture containing real port-scan traffic.")
     ap.add_argument("--target", default="127.0.0.1", help="defaults to loopback")
     ap.add_argument("--iface", default=None, help="capture interface (auto for loopback)")
     ap.add_argument("--ports", type=int, default=1024, help="scan ports 1..N (default 1024)")
@@ -113,14 +91,14 @@ def main():
 
     sniffer = threading.Thread(target=capture, daemon=True)
     sniffer.start()
-    time.sleep(2)          # let the sniffer attach before generating traffic
+    time.sleep(2)
 
     print("scanning...")
     started = time.time()
     opened = scan(target, ports)
     print(f"done in {time.time() - started:.1f}s, {len(opened)} open port(s): {opened[:10]}")
 
-    time.sleep(2)          # let trailing packets arrive
+    time.sleep(2)
     stop.set()
     sniffer.join(timeout=5)
 
@@ -140,10 +118,6 @@ def main():
         kinds[k] = kinds.get(k, 0) + 1
     for kind, n in sorted(kinds.items(), key=lambda kv: -kv[1]):
         print(f"  {n:>5}  {kind}")
-
-    if not flagged:
-        print("\n  Nothing flagged. That is a real result worth writing down:")
-        print("  the detector did not fire on scan traffic our own code captured.")
 
 
 if __name__ == "__main__":

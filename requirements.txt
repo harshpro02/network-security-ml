@@ -1,13 +1,8 @@
-# Packet capture and PCAP parsing
 scapy==2.7.0
-
-# ML training and inference
 scikit-learn==1.7.2
 pandas==2.3.3
 numpy==2.2.6
 joblib==1.5.3
-
-# API
 fastapi==0.137.2
 uvicorn==0.49.0
 python-multipart==0.0.32

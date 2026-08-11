@@ -4,14 +4,10 @@ __pycache__/
 *.csv
 .DS_Store
 
-# Models: ignore everything except the two small live models, which are
-# committed so the repo runs after a plain `git clone` and can be built
-# into a Docker image. attack_detector.joblib (52 MB) stays out.
 models/*
 !models/live_detector.joblib
 !models/live_classifier.joblib
 
-# Captures are local data, except the one bundled for the demo endpoint.
 *.pcap
 *.pcapng
 !demo/demo_capture.pcap

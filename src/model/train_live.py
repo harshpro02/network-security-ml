@@ -1,23 +1,9 @@
-"""Train the two models used for live detection.
-
-Only 4 features are available live (see live_bridge.py), so this is
-deliberately scoped to what volume-based features can actually support:
-
-  1. live_detector.joblib   - binary BENIGN vs ATTACK. This is the verdict.
-  2. live_classifier.joblib - names the attack type, but only for the
-     classes it is actually precise on. Measured here, not assumed.
-
-Trees are depth-capped so the saved models stay a few MB and can live in
-the repo. Unlimited depth cost 83 MB and bought ~1 point of accuracy.
-"""
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, precision_score
 import joblib
 
-# A class is only reported by name if it clears this precision on the
-# test set. Below it, the model cries wolf often enough to be useless.
 PRECISION_THRESHOLD = 0.80
 
 live_features = ['Flow Duration', 'Total Fwd Packets', 'Total Length of Fwd Packets', 'Average Packet Size']
@@ -43,7 +29,6 @@ def build():
     )
 
 
-# --- 1. binary detector: this produces the verdict -------------------------
 print("Training binary detector...")
 detector = build()
 detector.fit(X_train, ybin_train)
@@ -52,7 +37,6 @@ print("Saved models/live_detector.joblib\n")
 print(classification_report(ybin_test, detector.predict(X_test), digits=4, zero_division=0))
 
 
-# --- 2. type classifier: names the attack, where it can be trusted ---------
 print("Training attack type classifier...")
 classifier = build()
 classifier.fit(X_train, ytype_train)
@@ -66,8 +50,6 @@ reliable_types = [
     if label != 'BENIGN' and p >= PRECISION_THRESHOLD
 ]
 
-# Ship the reliable list with the model so serving cannot drift from
-# what was actually measured at training time.
 joblib.dump(
     {"model": classifier, "reliable_types": reliable_types},
     "models/live_classifier.joblib",
