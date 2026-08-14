@@ -136,7 +136,7 @@
     <b>duration</b>, <b>packet count</b>, <b>total bytes</b>, <b>average packet size</b>.
     Attack types are named only where the model measured precise enough to trust;
     the rest report as a generic threat.<br>
-    Live capture needs administrator access to a network interface &mdash;
+    Live capture needs administrator access to a network interface, so
     run <b>uvicorn src.api.main:app</b> locally to enable it.
   </footer>
 
@@ -179,8 +179,8 @@ function alertBlock(alerts) {
     in ${a.window_seconds}s</div>`).join("");
   return `<div class="alerts">
     <h3>!! behavioural alert${alerts.length === 1 ? "" : "s"}</h3>${rows}
-    <div class="note">detected across flows, not by the per-flow model &mdash;
-    a scan is only visible in aggregate</div>
+    <div class="note">detected across flows, not by the per-flow model.
+    a scan is only visible in aggregate.</div>
   </div>`;
 }
 

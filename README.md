@@ -7,8 +7,11 @@ service with a web dashboard, not a notebook.
 The interesting part is not the accuracy number. It is what happened when I pointed it
 at a real attack.
 
-<!-- TODO: replace with the deployed URL -->
-**Live demo:** _not deployed yet_
+**Live demo:** https://guardian-dty5.onrender.com
+
+Press `run demo` to replay a recorded port scan. Free tier, so the first request
+after a quiet period takes about a minute while the instance wakes up. Live capture is
+disabled there for the reason described below, and the page says so.
 
 <!-- TODO: add demo.gif showing the scan alert firing -->
 ![Guardian dashboard](docs/demo.gif)
