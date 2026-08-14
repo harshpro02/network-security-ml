@@ -8,3 +8,5 @@ services:
     envVars:
       - key: ALLOW_LIVE_CAPTURE
         value: "0"
+      - key: PORT
+        value: "8000"
