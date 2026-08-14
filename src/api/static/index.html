@@ -6,261 +6,232 @@
 <title>Guardian: network intrusion detection</title>
 <style>
   :root {
-    color-scheme: light;
-    --plane:    #f7f7f5;
-    --surface:  #ffffff;
-    --raised:   #fbfbfa;
-    --navy:     #0f1b2d;
-    --ink:      #0b0b0b;
-    --ink-2:    #52514e;
-    --muted:    #8b8a84;
-    --line:     #e6e5df;
-    --line-2:   #d8d7d0;
-    --accent:   #2a78d6;
-    --good:     #0ca30c;
-    --critical: #d03b3b;
-    --shadow:   0 1px 2px rgba(15,27,45,.04), 0 12px 28px -12px rgba(15,27,45,.10);
+    color-scheme: dark;
+    --bg:      #0f0f0f;
+    --panel:   #171717;
+    --raised:  #1f1f1f;
+    --ink:     #ffffff;
+    --ink-2:   #b0b0b0;
+    --muted:   #757575;
+    --line:    #272727;
+    --line-2:  #383838;
+    --danger:  #ff5c5c;
+    --grid:    #212121;
+    --axis:    #363636;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
     --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      color-scheme: dark;
-      --plane:    #0d0d0d;
-      --surface:  #1a1a19;
-      --raised:   #201f1e;
-      --navy:     #ffffff;
-      --ink:      #ffffff;
-      --ink-2:    #c3c2b7;
-      --muted:    #898781;
-      --line:     #2c2c2a;
-      --line-2:   #383835;
-      --accent:   #3987e5;
-      --shadow:   0 1px 2px rgba(0,0,0,.5), 0 12px 28px -12px rgba(0,0,0,.6);
-    }
-  }
-
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    margin: 0; background: var(--plane); color: var(--ink);
-    font: 15px/1.6 var(--sans);
-    -webkit-font-smoothing: antialiased;
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column; overflow: hidden;
   }
-  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px 96px; }
+  .mono { font-family: var(--mono); }
 
-  /* header */
-  .nav {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 20px 0; border-bottom: 1px solid var(--line); margin-bottom: 56px;
+  /* top bar */
+  .bar {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    padding: 13px 22px; border-bottom: 1px solid var(--line); flex: none;
   }
-  .logo { display: flex; align-items: center; gap: 10px; font-weight: 640; font-size: 16px; letter-spacing: -.2px; color: var(--navy); }
-  .logo svg { color: var(--accent); }
-  .pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line); border-radius: 999px;
-    padding: 5px 13px 5px 11px; font-size: 12.5px; color: var(--ink-2);
-    background: var(--surface);
-  }
-  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-  .pill .dot.on { background: var(--good); box-shadow: 0 0 0 3px rgba(12,163,12,.15); }
-
-  /* hero */
-  .hero { margin-bottom: 40px; }
-  h1 {
-    margin: 0 0 16px; font-size: clamp(30px, 5vw, 46px); line-height: 1.08;
-    letter-spacing: -1.6px; font-weight: 660; color: var(--navy); max-width: 17ch;
-  }
-  .lede { margin: 0; font-size: 17px; line-height: 1.55; color: var(--ink-2); max-width: 58ch; }
-  .lede b { color: var(--ink); font-weight: 600; }
-
-  /* actions */
-  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 32px 0 10px; }
+  .logo { display: flex; align-items: center; gap: 9px; font-weight: 620; font-size: 15px; letter-spacing: -.2px; }
+  .tag-line { font-size: 12.5px; color: var(--muted); border-left: 1px solid var(--line-2); padding-left: 20px; }
+  .tag-line b { color: var(--ink-2); font-weight: 500; }
+  .bar .grow { flex: 1; }
+  .acts { display: flex; gap: 7px; }
   button {
-    display: inline-flex; align-items: center; gap: 9px;
-    font: inherit; font-size: 14.5px; font-weight: 550;
-    padding: 11px 20px; border-radius: 9px; cursor: pointer;
-    border: 1px solid var(--line-2); background: var(--surface); color: var(--ink);
-    transition: border-color .15s, background .15s, transform .08s, box-shadow .15s;
+    display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px;
+    font-weight: 550; padding: 7px 14px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line-2); background: transparent; color: var(--ink);
+    transition: border-color .14s, background .14s;
   }
-  button:hover:not(:disabled) { border-color: var(--accent); box-shadow: var(--shadow); }
-  button:active:not(:disabled) { transform: translateY(1px); }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.primary:hover:not(:disabled) { filter: brightness(1.07); }
-  .spin {
-    width: 14px; height: 14px; border-radius: 50%; display: none; flex: none;
-    border: 2px solid currentColor; border-right-color: transparent;
-    animation: spin .6s linear infinite;
-  }
+  button:hover:not(:disabled) { border-color: var(--ink); background: var(--raised); }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  button:disabled { opacity: .33; cursor: not-allowed; }
+  button.primary { background: var(--ink); border-color: var(--ink); color: #101010; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #e2e2e2; border-color: #e2e2e2; }
+  .spin { width: 12px; height: 12px; border-radius: 50%; display: none; flex: none;
+          border: 2px solid currentColor; border-right-color: transparent; animation: spin .6s linear infinite; }
   button.busy .spin { display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  #status { min-height: 22px; font-size: 13.5px; color: var(--muted); }
+  .pill { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .pill .dot.on { background: var(--ink); box-shadow: 0 0 0 3px rgba(255,255,255,.12); }
 
-  /* cards */
-  .card {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: 14px; box-shadow: var(--shadow); margin-bottom: 16px;
-    animation: rise .25s cubic-bezier(.2,.7,.3,1) both;
+  /* console grid */
+  .console {
+    flex: 1; min-height: 0; display: grid; gap: 12px; padding: 12px 22px 18px;
+    grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "head side" "map side" "strip side";
   }
-  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
-  .card-head {
-    display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
-    padding: 18px 26px; border-bottom: 1px solid var(--line);
+  .a-head { grid-area: head; } .a-map { grid-area: map; }
+  .a-strip { grid-area: strip; } .a-side { grid-area: side; min-height: 0; }
+  .a-side { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 11px;
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
   }
-  .eyebrow { font-size: 11.5px; font-weight: 620; letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted); }
-  .card-body { padding: 26px; }
-  .note-card { padding: 18px 26px; font-size: 14px; color: var(--ink-2); }
-  .note-card b { color: var(--ink); font-weight: 620; }
+  .phead {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 11px 16px; border-bottom: 1px solid var(--line); flex: none;
+  }
+  .eyebrow { font-size: 10.5px; font-weight: 620; letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted); }
+  .pbody { padding: 16px; overflow: auto; min-height: 0; }
+  .pbody.flush { padding: 0; }
+  .pfill { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 16px 10px; }
 
   /* verdict */
-  .verdict { display: flex; gap: 18px; align-items: flex-start; }
-  .vmark { flex: none; margin-top: 3px; }
-  .verdict.ok  .vmark { color: var(--good); }
-  .verdict.bad .vmark { color: var(--critical); }
-  .vtitle { margin: 0 0 6px; font-size: 22px; font-weight: 640; letter-spacing: -.5px; line-height: 1.25; }
-  .verdict.ok  .vtitle { color: var(--good); }
-  .verdict.bad .vtitle { color: var(--critical); }
-  .vsub { margin: 0; color: var(--ink-2); font-size: 14.5px; max-width: 62ch; }
+  .headline { margin: 0 0 6px; font-size: 21px; font-weight: 650; letter-spacing: -.6px; line-height: 1.2; }
+  .headline.bad { color: var(--danger); }
+  .plain { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); max-width: 76ch; }
+  .plain b { color: var(--ink); font-weight: 620; }
 
-  /* stats */
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 26px; margin-top: 30px; }
-  .stat .k { font-size: 12px; color: var(--muted); margin-bottom: 4px; letter-spacing: .1px; }
-  .stat .v { font-size: 27px; font-weight: 650; letter-spacing: -.9px; color: var(--navy); line-height: 1.1; }
-  .stat .v.sm { font-size: 15px; font-weight: 550; letter-spacing: -.1px; color: var(--ink-2); }
-
-  /* meter */
-  .meter { display: flex; height: 8px; gap: 2px; margin: 28px 0 12px; border-radius: 999px; overflow: hidden; background: var(--line); }
-  .meter span { display: block; height: 100%; }
-  .meter .ok  { background: var(--good); }
-  .meter .bad { background: var(--critical); }
-  .legend { display: flex; gap: 22px; font-size: 13px; color: var(--ink-2); }
-  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 8px; }
-  .legend .k-ok  { background: var(--good); }
-  .legend .k-bad { background: var(--critical); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 14px 18px;
+           margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .stat .v { font-size: 22px; font-weight: 660; letter-spacing: -.8px; line-height: 1.1; }
+  .stat .v.bad { color: var(--danger); }
+  .stat .v.sm { font-size: 13.5px; font-weight: 560; letter-spacing: 0; }
+  .stat .k { font-size: 11.5px; color: var(--ink-2); margin-top: 3px; }
+  .stat .why { font-size: 10.5px; color: var(--muted); line-height: 1.4; margin-top: 1px; }
 
   /* alerts */
-  .card.alert { border-color: rgba(208,59,59,.35); }
-  .card.alert .card-head { border-bottom-color: rgba(208,59,59,.22); }
-  .card.alert .eyebrow { color: var(--critical); }
-  .arow { display: flex; gap: 16px; align-items: baseline; padding: 15px 26px; }
+  .panel.alert { border-color: rgba(255,92,92,.45); }
+  .panel.alert .phead { border-bottom-color: rgba(255,92,92,.28); }
+  .panel.alert .eyebrow { color: var(--danger); }
+  .arow { padding: 14px 16px; }
   .arow + .arow { border-top: 1px solid var(--line); }
-  .atag {
-    flex: none; font-size: 11px; font-weight: 660; letter-spacing: .7px; text-transform: uppercase;
-    color: var(--critical); background: rgba(208,59,59,.09);
-    border-radius: 6px; padding: 4px 9px; min-width: 92px; text-align: center;
-  }
-  .abody { font-size: 14.5px; color: var(--ink-2); }
-  .abody b { color: var(--ink); font-weight: 620; }
-  .abody .mono { font-family: var(--mono); font-size: 13.5px; }
-  .afoot { padding: 14px 26px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .atag { display: inline-block; font-size: 10px; font-weight: 660; letter-spacing: .8px;
+          text-transform: uppercase; color: var(--danger); border: 1px solid rgba(255,92,92,.45);
+          border-radius: 4px; padding: 2px 7px; margin-bottom: 9px; }
+  .asay { margin: 0 0 6px; font-size: 14.5px; font-weight: 600; letter-spacing: -.2px; line-height: 1.35; }
+  .awhy { margin: 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.55; }
+  .awhy b { color: var(--ink); font-weight: 620; }
+  .empty { padding: 22px 16px; font-size: 13px; color: var(--muted); line-height: 1.6; }
 
   /* charts */
-  :root { --grid: #ececE6; --axis: #d8d7d0; }
-  @media (prefers-color-scheme: dark) { :root { --grid: #262624; --axis: #383835; } }
-  .chart { padding: 22px 26px 18px; }
-  .chart svg { display: block; overflow: visible; }
-  .chart-note { font-size: 13px; color: var(--muted); margin-top: 12px; max-width: 70ch; }
-  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 780px) { .split { grid-template-columns: 1fr; } }
+  .chartbox { flex: 1; min-height: 0; }
+  .chartbox svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .caption { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 8px 0 0; }
+  .caption b { color: var(--ink-2); font-weight: 600; }
+  .legend { display: flex; gap: 16px; font-size: 11.5px; color: var(--muted); }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+  .legend .k-ok  { background: var(--ink-2); }
+  .legend .k-bad { background: var(--danger); }
 
-  .bars { padding: 4px 0; }
-  .brow { display: grid; grid-template-columns: 148px 1fr 74px; gap: 14px; align-items: center; padding: 7px 0; }
-  .bname { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
-  .btrack { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
-  .bfill { height: 100%; background: var(--accent); border-radius: 999px; }
-  .bval { font-size: 12.5px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .a-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .a-strip .panel { height: 168px; }
+
+  .bars { padding: 2px 0; }
+  .brow { display: grid; grid-template-columns: 122px 1fr 62px; gap: 10px; align-items: center; padding: 5px 0; }
+  .bname { font-size: 11.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+  .btrack { height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .bfill { height: 100%; background: var(--ink-2); border-radius: 999px; }
+  .bval { font-size: 11.5px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+
+  .meter { display: flex; height: 6px; gap: 2px; margin: 14px 0 9px; border-radius: 999px; overflow: hidden; background: var(--line); }
+  .meter span { display: block; height: 100%; }
+  .meter .ok { background: var(--ink-2); } .meter .bad { background: var(--danger); }
 
   /* table */
-  .scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13.5px; white-space: nowrap; }
-  th {
-    position: sticky; top: 0; background: var(--surface); z-index: 1;
-    text-align: left; font-size: 11.5px; font-weight: 620; letter-spacing: .7px;
-    text-transform: uppercase; color: var(--muted);
-    padding: 14px 18px; border-bottom: 1px solid var(--line);
-  }
-  td { padding: 12px 18px; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--panel); z-index: 1; text-align: left;
+       font-size: 10px; font-weight: 620; letter-spacing: .8px; text-transform: uppercase;
+       color: var(--muted); padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  td { padding: 8px 14px; border-bottom: 1px solid var(--line); color: var(--ink-2); }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:hover td { background: var(--raised); }
-  .mono { font-family: var(--mono); font-size: 13px; }
   .n { text-align: right; font-variant-numeric: tabular-nums; }
-  .tag {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 12.5px; font-weight: 580; color: var(--ink);
-  }
-  .tag i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-  .tag.ok i  { background: var(--good); }
-  .tag.bad i { background: var(--critical); }
-  .more { padding: 14px 26px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-2); }
+  .tag.bad { color: var(--danger); font-weight: 640; }
+  .tag i { width: 6px; height: 6px; border-radius: 50%; flex: none; background: currentColor; }
 
-  footer {
-    margin-top: 56px; padding-top: 26px; border-top: 1px solid var(--line);
-    font-size: 13px; line-height: 1.75; color: var(--muted); max-width: 78ch;
-  }
-  footer b { color: var(--ink-2); font-weight: 600; }
-  footer code {
-    font-family: var(--mono); font-size: 12.5px; background: var(--surface);
-    border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px;
-  }
-  @media (max-width: 620px) {
-    .card-body, .card-head, .arow, .more, .afoot { padding-left: 18px; padding-right: 18px; }
-    .arow { flex-direction: column; gap: 8px; }
-    .verdict { flex-direction: column; gap: 12px; }
+  @media (max-width: 940px) {
+    body { overflow: auto; }
+    .console { grid-template-columns: 1fr; grid-template-rows: none;
+               grid-template-areas: "head" "side" "map" "strip"; }
+    .a-map { height: 320px; } .a-side { display: block; }
+    .a-side .panel { margin-bottom: 12px; }
+    .a-strip { grid-template-columns: 1fr; }
+    .tag-line { border-left: none; padding-left: 0; flex-basis: 100%; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <nav class="nav">
-    <div class="logo">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
-      Guardian
-    </div>
-    <div class="pill" id="mode"><span class="dot"></span>connecting</div>
-  </nav>
-
-  <header class="hero">
-    <h1>Know what your network is actually doing.</h1>
-    <p class="lede">
-      Guardian captures live packets, groups them into flows, and scores each one against a
-      random forest trained on <b>2.8 million</b> labelled records. A second layer watches
-      the pattern <b>across</b> flows, where port scans and beacons hide.
-    </p>
-    <div class="actions">
-      <button class="primary" id="btn-demo"><span class="spin"></span>Run demo</button>
-      <button id="btn-upload"><span class="spin"></span>Upload a capture</button>
-      <button id="btn-scan"><span class="spin"></span>Scan live traffic</button>
-      <input type="file" id="file" accept=".pcap,.pcapng" hidden>
-    </div>
-    <div id="status" role="status" aria-live="polite"></div>
-  </header>
-
-  <div id="warn"></div>
-  <div id="result"></div>
-
-  <script src="/static/charts.js"></script>
-
-  <footer>
-    Flows are scored on the four features computable from raw packets: <b>duration</b>,
-    <b>packet count</b>, <b>total bytes</b> and <b>average packet size</b>. Attack types are
-    named only where the model measured precise enough to trust. Scans, sweeps and beacons
-    are found across flows instead, because no single flow contains the evidence.
-    Live capture needs administrator access to a network interface, so run
-    <code>uvicorn src.api.main:app</code> locally to enable it.
-  </footer>
-
+<div class="bar">
+  <div class="logo">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+    Guardian
+  </div>
+  <div class="tag-line">Every machine has thousands of <b>ports</b>, like numbered doors.
+    Normal software knocks on a few. An attacker tries them all.</div>
+  <div class="grow"></div>
+  <div class="acts">
+    <button class="primary" id="btn-demo"><span class="spin"></span>Run demo</button>
+    <button id="btn-upload"><span class="spin"></span>Upload</button>
+    <button id="btn-scan"><span class="spin"></span>Scan live</button>
+    <input type="file" id="file" accept=".pcap,.pcapng" hidden>
+  </div>
+  <div class="pill" id="mode"><span class="dot"></span>connecting</div>
 </div>
 
+<div class="console">
+  <div class="a-head panel">
+    <div class="pbody" id="verdict">
+      <h2 class="headline">Ready</h2>
+      <p class="plain">Press <b>Run demo</b> to replay a real port scan that was recorded on a
+        live machine, and watch how it gets caught.</p>
+    </div>
+  </div>
+
+  <div class="a-map panel">
+    <div class="phead"><span class="eyebrow">Ports contacted over time</span>
+      <span class="eyebrow" id="map-count"></span></div>
+    <div class="pfill">
+      <div class="chartbox" id="map"></div>
+      <div class="legend" id="map-legend" style="margin-top:8px"></div>
+      <p class="caption" id="map-caption">Each dot will be one connection. Height is the port
+        it reached, left to right is when it happened.</p>
+    </div>
+  </div>
+
+  <div class="a-strip">
+    <div class="panel">
+      <div class="phead"><span class="eyebrow">Traffic over time</span></div>
+      <div class="pfill"><div class="chartbox" id="timeline"></div></div>
+    </div>
+    <div class="panel">
+      <div class="phead"><span class="eyebrow">Busiest destinations</span></div>
+      <div class="pbody" id="talkers"><div class="caption">Nothing analysed yet.</div></div>
+    </div>
+  </div>
+
+  <div class="a-side">
+    <div class="panel" id="alert-panel">
+      <div class="phead"><span class="eyebrow">Behaviour</span><span class="eyebrow" id="alert-count"></span></div>
+      <div class="pbody flush" id="alerts">
+        <div class="empty">Some attacks look ordinary one connection at a time. Anything found by
+          comparing connections against each other shows up here.</div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="phead"><span class="eyebrow">Connections</span><span class="eyebrow" id="flow-count"></span></div>
+      <div class="pbody flush" id="flows"><div class="empty" id="status">Waiting for traffic.</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/charts.js"></script>
 <script>
 const PROTO = { 1: "ICMP", 6: "TCP", 17: "UDP" };
-const ROW_CAP = 60;
+const ROW_CAP = 150;
 const BTNS = ["btn-demo", "btn-upload", "btn-scan"];
-const LABEL = { port_scan: "Port scan", host_sweep: "Host sweep", beacon: "Beacon" };
 const $ = id => document.getElementById(id);
 let liveOff = false;
 
@@ -272,198 +243,150 @@ const bytes = n =>
   n < 1048576 ? (n / 1024).toFixed(1) + " KB" :
   (n / 1048576).toFixed(1) + " MB";
 
-const ICON_OK = `<svg class="vmark" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-  stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`;
-const ICON_BAD = `<svg class="vmark" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-  stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
-  <path d="M12 9v4"/><path d="M12 17h.01"/></svg>`;
-
 function setBusy(id, busy, msg) {
   BTNS.forEach(b => {
     $(b).disabled = busy || (b === "btn-scan" && liveOff);
     $(b).classList.toggle("busy", busy && b === id);
   });
-  $("status").textContent = msg;
+  if (msg) $("flows").innerHTML = `<div class="empty">${esc(msg)}</div>`;
 }
 
-const fail = (title, detail) => `<div class="card alert">
-  <div class="card-body"><div class="verdict bad">${ICON_BAD}
-    <div><h2 class="vtitle">${esc(title)}</h2><p class="vsub">${esc(detail)}</p></div>
-  </div></div></div>`;
-
-function alertCard(alerts) {
-  if (!alerts.length) return "";
-  const rows = alerts.map(a => {
-    let body;
+function alertRows(alerts) {
+  if (!alerts.length) {
+    return `<div class="empty">Nothing unusual across the connections as a group.
+      Scans, sweeps and repeated timed check-ins would appear here.</div>`;
+  }
+  return alerts.map(a => {
+    let tag, say, why;
     if (a.kind === "beacon") {
-      body = `<b>${esc(a.source)}</b> contacted <span class="mono">${esc(a.target)}:${a.port}</span>
-        <b>${a.count}</b> times at a steady <b>${a.interval_seconds}s</b> interval,
-        jitter ${(a.jitter * 100).toFixed(0)}%`;
+      tag = "Beacon";
+      say = `Something is checking in with ${esc(a.target)} on a timer.`;
+      why = `It connected <b>${a.count}</b> times, once every <b>${a.interval_seconds}s</b>,
+        varying by only ${(a.jitter * 100).toFixed(0)}%. People do not browse that evenly.
+        Software calling home does.`;
     } else if (a.kind === "host_sweep") {
-      body = `<b>${esc(a.source)}</b> contacted <b>${a.count.toLocaleString()}</b>
-        distinct hosts in ${a.window_seconds}s`;
+      tag = "Host sweep";
+      say = `${esc(a.source)} went looking for other machines.`;
+      why = `It contacted <b>${a.count.toLocaleString()} different devices</b> in
+        ${a.window_seconds}s, which is how an intruder maps what else is reachable.`;
     } else {
-      body = `<b>${esc(a.source)}</b> contacted <b>${a.count.toLocaleString()}</b>
-        distinct ports on <span class="mono">${esc(a.target)}</span> in ${a.window_seconds}s`;
+      tag = "Port scan";
+      say = `${esc(a.source)} tried the doors on ${esc(a.target)}, one after another.`;
+      why = `It reached <b>${a.count.toLocaleString()} different ports</b> in ${a.window_seconds}s.
+        Ordinary traffic touches a handful. Trying thousands is how an attacker finds which
+        services are running before picking one to break into.`;
     }
-    return `<div class="arow"><span class="atag">${LABEL[a.kind] || esc(a.kind)}</span>
-      <span class="abody">${body}</span></div>`;
+    return `<div class="arow"><span class="atag">${tag}</span>
+      <p class="asay">${say}</p><p class="awhy">${why}</p></div>`;
   }).join("");
-
-  return `<div class="card alert">
-    <div class="card-head">
-      <span class="eyebrow">Behavioural alert${alerts.length === 1 ? "" : "s"}</span>
-      <span class="eyebrow">${alerts.length} found</span>
-    </div>
-    ${rows}
-    <div class="afoot">Found across flows, not by the per-flow model. A scan or a beacon is
-    only visible in aggregate.</div>
-  </div>`;
 }
 
 function render(d) {
   const flows = d.flows || [];
   const bad = d.threat_count || 0;
   const alerts = d.alerts || [];
-
-  if (!flows.length) {
-    $("result").innerHTML = `<div class="card"><div class="card-body">
-      <div class="verdict ok">${ICON_OK}<div>
-        <h2 class="vtitle">Nothing to analyse</h2>
-        <p class="vsub">No network conversations were found in that traffic.</p>
-      </div></div></div></div>`;
-    return;
-  }
-
+  const points = d.points || [];
   const total = d.flow_count ?? flows.length;
   const ok = total - bad;
-  const pct = (bad / total) * 100;
-  const clear = bad === 0 && alerts.length === 0;
+  const pct = total ? (bad / total) * 100 : 0;
+  const distinctPorts = new Set(points.map(p => p[1])).size;
+  const src = { live: "Live capture", upload: "Uploaded file", demo: "Recorded replay" }[d.source] || "n/a";
 
-  const parts = [];
-  if (alerts.length) parts.push(`${alerts.length} behavioural alert${alerts.length === 1 ? "" : "s"}`);
-  if (bad) parts.push(`${bad} flow${bad === 1 ? "" : "s"} flagged`);
-  const headline = parts.length ? parts.join(", ") : "This traffic looks normal";
+  let headline, plain, danger = false;
+  if (!total) {
+    headline = "Nothing to analyse";
+    plain = "No network conversations were found in that traffic.";
+  } else if (alerts.length) {
+    danger = true;
+    headline = "This machine was scanned.";
+    plain = `Guardian read <b>${(d.packets_read || 0).toLocaleString()} packets</b> and sorted them into
+      <b>${total.toLocaleString()} conversations</b>. Almost every one looks ordinary on its own, and the
+      model rated them that way. Together they are an attack: something worked through
+      <b>${distinctPorts.toLocaleString()} different ports</b> in about a minute.`;
+  } else if (bad) {
+    danger = true;
+    headline = `${bad} conversation${bad === 1 ? "" : "s"} look suspicious.`;
+    plain = `Out of <b>${total.toLocaleString()}</b> conversations, <b>${bad}</b> matched patterns the model
+      learned from known attacks. Nothing unusual in the wider behaviour.`;
+  } else {
+    headline = "This traffic looks normal.";
+    plain = `Guardian read <b>${(d.packets_read || 0).toLocaleString()} packets</b> across
+      <b>${total.toLocaleString()} conversations</b> and found nothing resembling a known attack.`;
+  }
 
-  const detail = bad
-    ? `${bad} of ${total.toLocaleString()} conversations match patterns the model learned from known attacks.`
-    : alerts.length
-      ? `No single conversation looks unusual, but the pattern across ${total.toLocaleString()} flows does.`
-      : `All ${total.toLocaleString()} conversations match everyday traffic. Nothing resembles a known attack.`;
+  $("verdict").innerHTML = `
+    <h2 class="headline ${danger ? "bad" : ""}">${headline}</h2>
+    <p class="plain">${plain}</p>
+    <div class="stats">
+      <div class="stat"><div class="v">${total.toLocaleString()}</div><div class="k">Conversations</div>
+        <div class="why">One machine talking to one port on another</div></div>
+      <div class="stat"><div class="v ${bad ? "bad" : ""}">${bad.toLocaleString()}</div><div class="k">Rated an attack</div>
+        <div class="why">Judged one conversation at a time</div></div>
+      <div class="stat"><div class="v ${alerts.length ? "bad" : ""}">${alerts.length}</div><div class="k">Behaviour alerts</div>
+        <div class="why">Found by comparing conversations</div></div>
+      <div class="stat"><div class="v">${distinctPorts.toLocaleString()}</div><div class="k">Ports contacted</div>
+        <div class="why">Normal browsing uses a handful</div></div>
+      <div class="stat"><div class="v sm">${src}</div><div class="k">${(d.packets_read || 0).toLocaleString()} packets</div>
+        <div class="why">Source of this traffic</div></div>
+    </div>
+    <div class="meter" role="img" aria-label="${ok} normal, ${bad} flagged">
+      ${ok ? `<span class="ok" style="width:${(ok / total) * 100}%"></span>` : ""}
+      ${bad ? `<span class="bad" style="width:${Math.max(pct, 0.6)}%"></span>` : ""}
+    </div>
+    <div class="legend"><span><i class="k-ok"></i>Rated normal ${ok.toLocaleString()}</span>
+      <span><i class="k-bad"></i>Rated an attack ${bad.toLocaleString()}</span></div>`;
+
+  $("map").innerHTML = portMap(points);
+  $("map-count").textContent = `${points.length.toLocaleString()} connections`;
+  $("map-legend").innerHTML = `<span><i class="k-ok"></i>Rated normal</span><span><i class="k-bad"></i>Rated an attack</span>`;
+  $("map-caption").innerHTML = distinctPorts > 200
+    ? `<b>Each dot is one connection.</b> The climbing line is one machine working through the
+       ports in order. Five minutes of ordinary browsing on this network touched <b>3</b> ports.`
+    : `<b>Each dot is one connection.</b> Height is the port it reached, left to right is when.
+       This traffic used <b>${distinctPorts.toLocaleString()}</b> ports, clustered where normal software sits.`;
+
+  $("timeline").innerHTML = timeline(points);
+  $("talkers").innerHTML = talkerBars(d.talkers || []) ||
+    `<div class="caption">No destinations to rank.</div>`;
+
+  $("alerts").innerHTML = alertRows(alerts);
+  $("alert-count").textContent = alerts.length ? `${alerts.length} found` : "none";
+  $("alert-panel").classList.toggle("alert", alerts.length > 0);
 
   const ordered = [...flows].sort((a, b) => (b.is_threat - a.is_threat) || (b.packets - a.packets));
   const shown = ordered.slice(0, ROW_CAP);
-
-  const rows = shown.map(f => `<tr>
+  $("flow-count").textContent = `${total.toLocaleString()} total`;
+  $("flows").innerHTML = `<table>
+    <thead><tr><th>Source</th><th>Destination</th><th class="n">Pkts</th><th>Verdict</th></tr></thead>
+    <tbody>${shown.map(f => `<tr>
       <td class="mono">${esc(f.source)}:${f.src_port}</td>
       <td class="mono">${esc(f.destination)}:${f.dst_port}</td>
-      <td>${PROTO[f.protocol] || "IP/" + f.protocol}</td>
       <td class="n">${f.packets.toLocaleString()}</td>
-      <td class="n">${bytes(f.bytes)}</td>
-      <td class="n">${f.duration_sec.toFixed(2)}s</td>
-      <td><span class="tag ${f.is_threat ? "bad" : "ok"}"><i></i>${
+      <td><span class="tag ${f.is_threat ? "bad" : ""}"><i></i>${
         esc(f.attack_type ? f.attack_type : f.is_threat ? "Suspicious" : "Normal")}</span></td>
-    </tr>`).join("");
-
-  const src = { live: "Live capture", upload: "Uploaded file", demo: "Recorded replay" }[d.source] || "n/a";
-
-  const points = d.points || [];
-  const distinctPorts = new Set(points.map(p => p[1])).size;
-  const scanNote = distinctPorts > 200
-    ? `Each dot is one connection. ${distinctPorts.toLocaleString()} distinct destination ports were
-       contacted, climbing steadily through the range. Ordinary traffic clusters on a handful of
-       ports such as 443 and 53, so a sweep like this has a shape nothing normal produces.`
-    : `Each dot is one connection, placed by the port it reached and when it happened.
-       ${distinctPorts.toLocaleString()} distinct destination ports across ${points.length.toLocaleString()}
-       connections, which is the clustered pattern ordinary traffic makes.`;
-
-  $("result").innerHTML = `
-    ${alertCard(alerts)}
-    <div class="card">
-      <div class="card-body">
-        <div class="verdict ${clear ? "ok" : "bad"}">
-          ${clear ? ICON_OK : ICON_BAD}
-          <div><h2 class="vtitle">${headline}</h2><p class="vsub">${detail}</p></div>
-        </div>
-        <div class="stats">
-          <div class="stat"><div class="k">Flows analysed</div><div class="v">${total.toLocaleString()}</div></div>
-          <div class="stat"><div class="k">Flagged</div><div class="v">${bad.toLocaleString()}</div></div>
-          <div class="stat"><div class="k">Alerts</div><div class="v">${alerts.length}</div></div>
-          <div class="stat"><div class="k">Packets read</div><div class="v">${(d.packets_read || 0).toLocaleString()}</div></div>
-          <div class="stat"><div class="k">Source</div><div class="v sm">${src}</div></div>
-        </div>
-        <div class="meter" role="img" aria-label="${ok} normal, ${bad} flagged">
-          ${ok ? `<span class="ok" style="width:${(ok / total) * 100}%"></span>` : ""}
-          ${bad ? `<span class="bad" style="width:${Math.max(pct, 0.6)}%"></span>` : ""}
-        </div>
-        <div class="legend">
-          <span><i class="k-ok"></i>Normal ${ok.toLocaleString()}</span>
-          <span><i class="k-bad"></i>Flagged ${bad.toLocaleString()}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <span class="eyebrow">Ports contacted over time</span>
-        <span class="eyebrow">${points.length.toLocaleString()} connections</span>
-      </div>
-      <div class="chart">
-        ${portMap(points)}
-        <div class="legend" style="margin-top:14px">
-          <span><i class="k-ok"></i>Normal</span>
-          <span><i class="k-bad"></i>Flagged</span>
-        </div>
-        <p class="chart-note">${scanNote}</p>
-      </div>
-    </div>
-
-    <div class="split">
-      <div class="card">
-        <div class="card-head"><span class="eyebrow">Packets over time</span></div>
-        <div class="chart">${timeline(points)}</div>
-      </div>
-      <div class="card">
-        <div class="card-head"><span class="eyebrow">Busiest destinations</span></div>
-        <div class="chart">${talkerBars(d.talkers || [])}</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">
-        <span class="eyebrow">Flows</span>
-        <span class="eyebrow">Flagged first, then busiest</span>
-      </div>
-      <div class="scroll"><table>
-        <thead><tr><th>Source</th><th>Destination</th><th>Protocol</th>
-        <th class="n">Packets</th><th class="n">Volume</th><th class="n">Duration</th><th>Verdict</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-      ${total > shown.length
-        ? `<div class="more">Showing ${shown.length} of ${total.toLocaleString()} scored flows.</div>`
-        : ""}
-    </div>`;
+    </tr>`).join("")}</tbody></table>`;
 }
 
 async function call(id, url, opts, msg) {
   setBusy(id, true, msg);
-  $("result").innerHTML = "";
   try {
     const res = await fetch(url, opts);
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) $("result").innerHTML = fail("Could not complete that", body.detail || res.statusText);
-    else render(body);
+    if (!res.ok) {
+      $("verdict").innerHTML = `<h2 class="headline bad">Could not complete that</h2>
+        <p class="plain">${esc(body.detail || res.statusText)}</p>`;
+      $("flows").innerHTML = `<div class="empty">No data.</div>`;
+    } else render(body);
   } catch (err) {
-    $("result").innerHTML = fail("Could not reach the server", err.message);
+    $("verdict").innerHTML = `<h2 class="headline bad">Could not reach the server</h2>
+      <p class="plain">${esc(err.message)}</p>`;
   } finally {
     setBusy(id, false, "");
   }
 }
 
-$("btn-demo").onclick = () => call("btn-demo", "/api/demo", {}, "Replaying the recorded capture…");
-$("btn-scan").onclick = () => call("btn-scan", "/api/scan", {}, "Capturing live packets…");
+$("btn-demo").onclick = () => call("btn-demo", "/api/demo", {}, "Replaying a recorded attack…");
+$("btn-scan").onclick = () => call("btn-scan", "/api/scan", {}, "Capturing live packets for 30 seconds…");
 $("btn-upload").onclick = () => $("file").click();
 
 $("file").onchange = e => {
@@ -479,21 +402,13 @@ fetch("/api/health").then(r => r.json()).then(h => {
   $("mode").innerHTML = h.live_capture
     ? '<span class="dot on"></span>Live capture ready'
     : '<span class="dot"></span>Hosted build';
-
   if (!h.live_capture) {
     liveOff = true;
     $("btn-scan").disabled = true;
-    $("btn-scan").title = "Live capture is unavailable on this host";
-    $("warn").innerHTML = `<div class="card"><div class="note-card">
-      <b>Hosted build.</b> Live packet capture needs administrator access to a real network
-      interface, which a cloud server does not have. The demo replays a recorded capture through
-      the same detection code, and you can upload your own. Clone the repo to run live locally.
-    </div></div>`;
+    $("btn-scan").title = "Live capture needs a real network card, which a cloud server does not have";
   }
   if (!h.demo_available) $("btn-demo").disabled = true;
-}).catch(() => {
-  $("mode").innerHTML = '<span class="dot"></span>Offline';
-});
+}).catch(() => { $("mode").innerHTML = '<span class="dot"></span>Offline'; });
 </script>
 </body>
 </html>
