@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>guardian — network intrusion detection</title>
+<title>guardian: network intrusion detection</title>
 <style>
   :root {
     color-scheme: dark;
@@ -227,7 +227,7 @@ function render(d) {
         esc(f.attack_type ? f.attack_type.toLowerCase() : f.is_threat ? "suspicious" : "ok")}</td>
     </tr>`).join("");
 
-  const src = { live: "live capture", upload: "uploaded file", demo: "recorded replay" }[d.source] || "—";
+  const src = { live: "live capture", upload: "uploaded file", demo: "recorded replay" }[d.source] || "n/a";
 
   $("result").innerHTML = `
     ${alertBlock(alerts)}

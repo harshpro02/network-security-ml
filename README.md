@@ -172,6 +172,51 @@ which detector fired, because they are not the same kind of evidence.
 This is roughly how production tooling works. Snort and Suricata run threshold rules
 next to statistical detection rather than choosing one.
 
+## What the accuracy number is actually worth
+
+A random split is the standard way this dataset gets evaluated, and it flatters every
+model trained on it. CICIDS2017 attack flows arrive in bursts of near identical records,
+so a random split puts near duplicates of the same burst on both sides.
+
+Each attack family in CICIDS2017 appears on exactly one day of capture. That makes a
+leave-one-day-out split possible, and it asks a much harder question: can the detector
+call an attack family it has never seen an attack?
+
+| held out day | attack recall, 4 features | attack recall, 28 features |
+|---|---|---|
+| Friday, DDoS | 0.449 | 0.166 |
+| Friday, PortScan | 0.001 | 0.002 |
+| Friday morning, Bot | 0.000 | 0.000 |
+| Thursday, Infiltration | 0.000 | 0.000 |
+| Thursday, web attacks | 0.012 | 0.005 |
+| Tuesday, Patator | 0.001 | 0.003 |
+| Wednesday, DoS family | 0.011 | 0.005 |
+| **mean** | **0.068** | **0.026** |
+
+Benign recall stays between 0.95 and 0.999 throughout, so the model is not panicking and
+flagging everything. It is simply missing the attacks.
+
+Two things follow.
+
+**The 0.98 headline is mostly memorisation.** Against a novel attack family the deployed
+model catches under 7%. That does not make it useless, since a real deployment mostly
+faces known attack shapes, but it does mean the benchmark number should not be read as a
+field performance estimate. Very little published work on this dataset reports the
+harder split.
+
+**Adding features made generalisation worse.** The 28 feature set raises random split
+accuracy from 0.9809 to 0.9984 and drops leave-one-day-out recall from 0.068 to 0.026.
+The extra columns, destination port in particular, let the model memorise the specific
+lab topology rather than learn attack behaviour. It looks better on every number a
+notebook would print and is worse at the actual job.
+
+That is why this repository still ships four features. The offline comparison said
+otherwise and the day split caught it.
+
+It is also the second independent piece of evidence for the cross-flow detector.
+PortScan recall on a held out day is 0.001. The model is close to blind to scans it has
+not trained on, and no per-flow feature set fixes that.
+
 ## Design decisions
 
 **Scoping to four features.** The first live model was handed the 78 feature vector with
@@ -196,18 +241,15 @@ same work in 0.09 seconds.
 
 Stated plainly, because they are real.
 
-- **The headline accuracy is optimistic.** The split is random, and CICIDS2017 attack
-  flows arrive in bursts of near identical records, so near duplicates land on both
-  sides of the split. A day held out evaluation is the honest test.
+- **It barely generalises to unseen attack families.** Mean leave-one-day-out attack
+  recall is 0.068. Measured above. This is the honest ceiling and the number I would
+  lead with if someone asked what it can really do.
 - **Test set precision does not survive contact with live traffic.** PortScan scores
-  0.990 on held out rows and caught 3 of 2,050 flows on a scan this code captured. The
-  cross-flow detector covers that case; the general lesson stands.
-- **Four features is a low ceiling.** Around 28 CICIDS2017 columns are derivable from
-  raw packets, including destination port, packet length statistics, inter-arrival times
-  and TCP flag counts. Destination port alone takes accuracy to 0.9956 and macro F1 to
-  0.9931 in offline testing. I have not shipped it, because a model given destination
-  port may be learning "port 22 means SSH-Patator", which would flag legitimate SSH. A
-  day held out split is the way to tell memorisation from generalisation.
+  0.990 on held out rows, 0.001 on a held out day, and caught 3 of 2,050 flows on a scan
+  this code captured. Three different measurements, one conclusion.
+- **More features are not the answer, which I checked rather than assumed.** Around 28
+  CICIDS2017 columns are derivable from raw packets. Using them raises random split
+  accuracy to 0.9984 and lowers leave-one-day-out recall to 0.026.
 - **Flows are directional.** `A to B` and `B to A` are scored separately. Production
   tooling treats a conversation as one bidirectional flow, which would also unlock the
   backward direction features.
