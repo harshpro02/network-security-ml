@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from scapy.all import rdpcap, sniff
 
 from src.model.live_bridge import FlowTable, classify_flows, group_packets
@@ -21,10 +22,22 @@ LIVE_CAPTURE_ENABLED = os.getenv("ALLOW_LIVE_CAPTURE", "1") == "1"
 CAPTURE_SECONDS = int(os.getenv("CAPTURE_SECONDS", "30"))
 
 app = FastAPI(title="Guardian", description="ML network intrusion detection")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 def _payload(results, source, packets_read, alerts):
     ordered = sorted(results, key=lambda r: (not r["is_threat"], -r["packets"]))
+
+    points = [
+        [r["started_at"], r["dst_port"], r["packets"], 1 if r["is_threat"] else 0]
+        for r in results
+    ]
+
+    top = {}
+    for r in results:
+        top[r["destination"]] = top.get(r["destination"], 0) + r["bytes"]
+    talkers = sorted(top.items(), key=lambda kv: -kv[1])[:8]
+
     return {
         "source": source,
         "packets_read": packets_read,
@@ -34,6 +47,8 @@ def _payload(results, source, packets_read, alerts):
         "flows": ordered[:MAX_FLOWS_RETURNED],
         "alerts": alerts,
         "alert_count": len(alerts),
+        "points": points,
+        "talkers": [{"host": h, "bytes": b} for h, b in talkers],
     }
 
 

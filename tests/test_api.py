@@ -60,7 +60,7 @@ class TestAnalyse:
         for flow in upload(pcap_bytes).json()["flows"]:
             assert set(flow) == {
                 "source", "destination", "src_port", "dst_port", "protocol",
-                "packets", "bytes", "duration_sec", "avg_packet_size",
+                "packets", "bytes", "duration_sec", "started_at", "avg_packet_size",
                 "verdict", "attack_type", "is_threat",
             }
             assert flow["verdict"] in {"BENIGN", "ATTACK"}
@@ -72,6 +72,31 @@ class TestAnalyse:
         assert isinstance(flow["verdict"], str)
         assert isinstance(flow["is_threat"], bool)
         assert isinstance(flow["packets"], int)
+
+    def test_chart_points_cover_every_flow_not_just_the_returned_page(self, tmp_path):
+        packets = []
+        for port in range(1, main.MAX_FLOWS_RETURNED + 60):
+            p = IP(src="10.0.0.5", dst="10.0.0.9") / TCP(sport=40000 + port, dport=port, flags="S")
+            p.time = 1_700_000_000.0 + port * 0.001
+            packets.append(p)
+        path = tmp_path / "scan.pcap"
+        wrpcap(str(path), packets)
+
+        body = upload(path.read_bytes()).json()
+        assert len(body["points"]) == body["flow_count"]
+        assert len(body["points"]) > len(body["flows"])
+        for t, port, pkts, bad in body["points"]:
+            assert t >= 0 and 0 <= port <= 65535 and pkts >= 1 and bad in (0, 1)
+
+    def test_first_flow_starts_at_zero(self, pcap_bytes):
+        starts = [f["started_at"] for f in upload(pcap_bytes).json()["flows"]]
+        assert min(starts) == 0.0
+        assert all(s >= 0 for s in starts)
+
+    def test_talkers_are_ranked_by_volume(self, pcap_bytes):
+        talkers = upload(pcap_bytes).json()["talkers"]
+        assert talkers
+        assert [t["bytes"] for t in talkers] == sorted((t["bytes"] for t in talkers), reverse=True)
 
     def test_flagged_flows_are_returned_first(self, pcap_bytes):
         flows = upload(pcap_bytes).json()["flows"]

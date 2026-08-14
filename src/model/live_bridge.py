@@ -125,6 +125,9 @@ def classify_flows(flow_list, min_packets=1):
         for i, predicted in zip(flagged, type_model.predict(frame.iloc[flagged])):
             named[i] = str(predicted)
 
+    starts = [min(float(p.time) for p in packets) for _, packets in kept]
+    origin = min(starts)
+
     results = []
     for i, (key, _) in enumerate(kept):
         duration, count, total_bytes, avg_size = features[i]
@@ -145,6 +148,7 @@ def classify_flows(flow_list, min_packets=1):
             "packets": count,
             "bytes": total_bytes,
             "duration_sec": round(duration, 3),
+            "started_at": round(starts[i] - origin, 3),
             "avg_packet_size": round(avg_size, 1),
             "verdict": verdict,
             "attack_type": attack_type,
