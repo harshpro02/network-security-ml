@@ -60,8 +60,8 @@ function portMap(points) {
     ${grid}
     <line x1="${PAD_L}" x2="${CHART_W - PAD_R}" y1="${PAD_T + plotH}" y2="${PAD_T + plotH}"
       stroke="var(--axis)" stroke-width="1"/>
-    <g fill="var(--good)" fill-opacity="${op}">${normal.join("")}</g>
-    <g fill="var(--critical)">${threat.join("")}</g>
+    <g fill="var(--dim)" fill-opacity="${op}">${normal.join("")}</g>
+    <g fill="var(--ink)">${threat.join("")}</g>
     <text x="${PAD_L - 10}" y="${PAD_T - 2}" text-anchor="end" font-size="10.5"
       fill="var(--muted)" letter-spacing="0.8">PORT</text>`);
 }
@@ -93,9 +93,9 @@ function timeline(points) {
     let out = "";
     if (v) out += `<rect x="${bx.toFixed(1)}" y="${(PAD_T + plotH - hTotal).toFixed(1)}"
       width="${w.toFixed(1)}" height="${Math.max(hTotal - hBad - (hBad ? 2 : 0), 0.8).toFixed(1)}"
-      rx="1.5" fill="var(--good)"/>`;
+      rx="1.5" fill="var(--dim)"/>`;
     if (bad[i]) out += `<rect x="${bx.toFixed(1)}" y="${(PAD_T + plotH - hBad).toFixed(1)}"
-      width="${w.toFixed(1)}" height="${Math.max(hBad, 0.8).toFixed(1)}" rx="1.5" fill="var(--critical)"/>`;
+      width="${w.toFixed(1)}" height="${Math.max(hBad, 0.8).toFixed(1)}" rx="1.5" fill="var(--ink)"/>`;
     return out;
   }).join("");
 
