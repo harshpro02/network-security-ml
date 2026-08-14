@@ -51,11 +51,12 @@ packets ──► flow table ──────► 4 features ──► binary d
                                bytes                      (precision-gated)
                                avg size
 
-        └─► cross-flow window ──► distinct ports per source ──► behavioural alert
-            (60s)                 distinct hosts per source
+        └─► cross-flow rules ───► distinct ports per source ──► behavioural alert
+                                  distinct hosts per source
+                                  connection interval jitter
 ```
 
-Two detectors, because they answer different questions.
+Two layers, because they answer different questions.
 
 The **model** judges one flow at a time. It is good at attacks with a distinctive shape:
 floods, slow-loris style exhaustion, credential brute force.
@@ -175,6 +176,42 @@ which detector fired, because they are not the same kind of evidence.
 This is roughly how production tooling works. Snort and Suricata run threshold rules
 next to statistical detection rather than choosing one.
 
+### The same gap, a second time
+
+Once the scan case was covered, the obvious question was whether anything else hides in
+the same blind spot. Beaconing does. Malware checking in with a command server produces
+a run of short connections at a regular interval, and every one of those connections is
+individually unremarkable.
+
+`find_beacons` groups connections by source, destination and port, then measures the
+gaps between them and divides the standard deviation by the mean. Regular check-ins give
+near zero jitter. Human browsing does not.
+
+Tested on five minutes of my own live traffic, 18,264 packets across 94 flows:
+
+| | result |
+|---|---|
+| beacon alerts on real traffic | **0** |
+| still 0 with the jitter threshold loosened to 0.40 | yes |
+| still 0 with the connection minimum dropped to 4 | yes |
+
+Then the same capture with a simulated implant mixed in, checking in every 30 seconds:
+
+| | result |
+|---|---|
+| implant detected | **yes**, 10 check-ins, 30s interval, 2% jitter |
+| false positives alongside it | **0** |
+| implant flows flagged by the per-flow model | **0 of 10** |
+
+That last row is the point. The model saw ten short outbound connections and correctly
+judged every one of them ordinary, because individually they are. The pattern was the
+only evidence, and the pattern is not in the feature vector.
+
+Worth stating plainly: legitimate software also beacons. Telemetry, keepalives and
+update checks all run on timers. This detector reports a regular connection pattern,
+which is a thing worth looking at, not a malware verdict. The interesting signal is a
+steady interval to somewhere you do not recognise.
+
 ## What the accuracy number is actually worth
 
 A random split is the standard way this dataset gets evaluated, and it flatters every
@@ -265,8 +302,8 @@ Stated plainly, because they are real.
 python -m pytest tests/ -q
 ```
 
-48 tests covering flow keying, the 120 second expiry, FIN and RST teardown, feature
-arithmetic, scan and sweep thresholds including boundary and window splitting cases, and
+58 tests covering flow keying, the 120 second expiry, FIN and RST teardown, feature
+arithmetic, scan, sweep and beacon thresholds including boundary and window splitting cases, and
 upload validation. One of them asserts that a malformed capture returns 400 without
 leaking parser internals, which is a real bug that got fixed rather than a hypothetical.
 
@@ -287,7 +324,7 @@ src/
   api/main.py             FastAPI app, three endpoints, upload validation
   api/static/index.html   dashboard
   model/live_bridge.py    flow table, feature extraction, scoring
-  model/scan_detector.py  cross-flow port scan and host sweep detection
+  model/behaviour.py      cross-flow rules: port scans, host sweeps, beaconing
   model/train_live.py     trains the binary detector and the type classifier
   model/train.py          trains the 78 feature reference model
   dataset/                CICIDS2017 cleaning and combining

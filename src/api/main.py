@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from scapy.all import rdpcap, sniff
 
 from src.model.live_bridge import FlowTable, classify_flows, group_packets
-from src.model.scan_detector import find_scans
+from src.model.behaviour import find_beacons, find_scans
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -38,11 +38,12 @@ def _payload(results, source, packets_read, alerts):
 
 
 def _verdicts_from_packets(packets, source):
+    flows = group_packets(packets)
     return _payload(
-        classify_flows(group_packets(packets)),
+        classify_flows(flows),
         source,
         len(packets),
-        find_scans(packets),
+        find_scans(packets) + find_beacons(flows),
     )
 
 
@@ -85,11 +86,12 @@ def scan():
     except OSError as exc:
         raise HTTPException(status_code=503, detail=f"Could not capture: {exc}")
 
+    flows = table.finish()
     payload = _payload(
-        classify_flows(table.finish()),
+        classify_flows(flows),
         "live",
         table.packets_seen,
-        find_scans(captured),
+        find_scans(captured) + find_beacons(flows),
     )
     payload["capture_seconds"] = CAPTURE_SECONDS
     return payload

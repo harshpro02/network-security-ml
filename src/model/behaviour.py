@@ -1,3 +1,4 @@
+import statistics
 from collections import defaultdict
 
 from scapy.all import IP, TCP, UDP
@@ -5,6 +6,10 @@ from scapy.all import IP, TCP, UDP
 SCAN_WINDOW = 60.0
 PORT_THRESHOLD = 20
 HOST_THRESHOLD = 20
+
+BEACON_MIN_CONNECTIONS = 6
+BEACON_MAX_JITTER = 0.15
+BEACON_MIN_INTERVAL = 2.0
 
 
 def _endpoints(packet):
@@ -66,4 +71,44 @@ def find_scans(packets, window=SCAN_WINDOW,
         })
 
     alerts.sort(key=lambda a: -a["count"])
+    return alerts
+
+
+def find_beacons(flow_list,
+                 min_connections=BEACON_MIN_CONNECTIONS,
+                 max_jitter=BEACON_MAX_JITTER,
+                 min_interval=BEACON_MIN_INTERVAL):
+    starts = defaultdict(list)
+    for key, packets in flow_list:
+        src, dst = key[0], key[1]
+        starts[(src, dst, key[3])].append(min(float(p.time) for p in packets))
+
+    alerts = []
+    for (src, dst, dport), times in starts.items():
+        if len(times) < min_connections:
+            continue
+
+        times.sort()
+        gaps = [b - a for a, b in zip(times, times[1:])]
+        mean = statistics.fmean(gaps)
+        if mean < min_interval:
+            continue
+
+        jitter = statistics.pstdev(gaps) / mean
+        if jitter > max_jitter:
+            continue
+
+        alerts.append({
+            "kind": "beacon",
+            "source": src,
+            "target": dst,
+            "port": dport,
+            "count": len(times),
+            "interval_seconds": round(mean, 1),
+            "jitter": round(jitter, 3),
+            "detail": (f"{src} contacted {dst}:{dport} {len(times)} times at a "
+                       f"steady {mean:.0f}s interval, jitter {jitter:.0%}"),
+        })
+
+    alerts.sort(key=lambda a: (a["jitter"], -a["count"]))
     return alerts

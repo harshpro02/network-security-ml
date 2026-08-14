@@ -1,6 +1,6 @@
 from scapy.all import IP, TCP, UDP
 
-from src.model.scan_detector import find_scans
+from src.model.behaviour import find_beacons, find_scans
 
 
 def tcp(src="10.0.0.66", dst="10.0.0.9", dport=80, t=0.0):
@@ -84,3 +84,61 @@ class TestInputHandling:
         packets = [tcp(dport=p, t=p * 0.01) for p in range(1, 60)]
         detail = find_scans(packets)[0]["detail"]
         assert "10.0.0.66" in detail and "59" in detail
+
+
+def flow(src="10.0.0.5", dst="93.184.216.34", dport=443, t=0.0, n=3):
+    packets = []
+    for i in range(n):
+        p = IP(src=src, dst=dst) / TCP(sport=50000, dport=dport)
+        p.time = t + i * 0.01
+        packets.append(p)
+    return ((src, dst, 50000, dport, 6), packets)
+
+
+class TestBeaconing:
+    def test_perfectly_regular_calls_home_are_flagged(self):
+        flows = [flow(t=i * 60.0) for i in range(10)]
+        alerts = find_beacons(flows)
+        assert len(alerts) == 1
+        assert alerts[0]["kind"] == "beacon"
+        assert alerts[0]["interval_seconds"] == 60.0
+        assert alerts[0]["count"] == 10
+
+    def test_small_jitter_still_counts(self):
+        offsets = [0, 60.5, 119.4, 180.6, 240.2, 299.5, 360.8]
+        alerts = find_beacons([flow(t=o) for o in offsets])
+        assert len(alerts) == 1
+
+    def test_irregular_browsing_is_not_a_beacon(self):
+        offsets = [0, 3, 47, 51, 52, 300, 301, 900]
+        assert find_beacons([flow(t=o) for o in offsets]) == []
+
+    def test_too_few_connections_is_not_a_beacon(self):
+        assert find_beacons([flow(t=i * 60.0) for i in range(5)]) == []
+
+    def test_rapid_bursts_are_not_beacons(self):
+        # Ten connections a tenth of a second apart is a page loading,
+        # not something calling home.
+        assert find_beacons([flow(t=i * 0.1) for i in range(10)]) == []
+
+    def test_separate_destinations_are_judged_separately(self):
+        flows = [flow(dst="1.1.1.1", t=i * 60.0) for i in range(8)]
+        flows += [flow(dst="2.2.2.2", t=o) for o in (0, 5, 90, 700, 701, 1500)]
+        alerts = find_beacons(flows)
+        assert [a["target"] for a in alerts] == ["1.1.1.1"]
+
+    def test_same_host_different_ports_are_separate(self):
+        flows = [flow(dport=443, t=i * 60.0) for i in range(8)]
+        flows += [flow(dport=80, t=i * 60.0) for i in range(8)]
+        assert {a["port"] for a in find_beacons(flows)} == {80, 443}
+
+    def test_jitter_is_reported(self):
+        alert = find_beacons([flow(t=i * 30.0) for i in range(8)])[0]
+        assert alert["jitter"] == 0.0
+
+    def test_detail_is_readable(self):
+        detail = find_beacons([flow(t=i * 60.0) for i in range(8)])[0]["detail"]
+        assert "93.184.216.34:443" in detail and "8 times" in detail
+
+    def test_empty_input(self):
+        assert find_beacons([]) == []
