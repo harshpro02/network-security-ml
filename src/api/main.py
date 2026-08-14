@@ -50,9 +50,14 @@ def _remember(macs):
 def _payload(results, source, packets_read, alerts, devices=()):
     ordered = sorted(results, key=lambda r: (not r["is_threat"], -r["packets"]))
 
+    # Flows are directional, so every conversation appears twice: once out to
+    # the service port and once back from an ephemeral reply port. Charting
+    # both draws each conversation twice and pins half the points at 60k+.
+    # The lower port is the service side, which is the half worth plotting.
     points = [
         [r["started_at"], r["dst_port"], r["packets"], 1 if r["is_threat"] else 0]
         for r in results
+        if r["dst_port"] <= r["src_port"]
     ]
 
     top = {}

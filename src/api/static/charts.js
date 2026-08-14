@@ -21,49 +21,67 @@ function shortBytes(n) {
   return (n / 1073741824).toFixed(1) + " GB";
 }
 
-/* Destination port against time. A port scan walks the port range, so it
-   draws a ramp that nothing in ordinary traffic resembles. */
+function niceStep(range, target) {
+  const raw = range / target;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  return [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || mag * 10;
+}
+
+/* Destination port against time, on a linear scale so a scan that walks the
+   ports in order reads as the straight diagonal it actually is. */
 function portMap(points) {
-  const H = 300, PAD_L = 52, PAD_R = 16, PAD_T = 16, PAD_B = 34;
+  const H = 260, PAD_L = 58, PAD_R = 20, PAD_T = 14, PAD_B = 30;
   const plotW = CHART_W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
   if (!points.length) return "";
 
   const maxT = Math.max(...points.map(p => p[0])) || 1;
-  const LOG_MAX = Math.log10(65535);
+
+  // A couple of stray high ports would otherwise stretch the axis to 60k and
+  // squash everything real into the bottom of the chart. Scale to the bulk of
+  // the data and pin the few outliers to the top edge.
+  const sorted = points.map(p => p[1]).sort((a, b) => a - b);
+  const bulk = sorted[Math.floor(sorted.length * 0.98)] || 1;
+  const step = niceStep(Math.max(bulk, 1), 5);
+  const top = Math.max(Math.ceil(bulk / step) * step, step);
+  const over = sorted.filter(v => v > top).length;
+
   const x = t => PAD_L + (t / maxT) * plotW;
-  const y = port => PAD_T + plotH - (Math.log10(Math.max(port, 1)) / LOG_MAX) * plotH;
+  const y = port => PAD_T + plotH - (Math.min(port, top) / top) * plotH;
 
-  const yTicks = [1, 10, 100, 1000, 10000, 65535];
-  const grid = yTicks.map(p => `
-    <line x1="${PAD_L}" x2="${CHART_W - PAD_R}" y1="${y(p).toFixed(1)}" y2="${y(p).toFixed(1)}"
+  let grid = "";
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    const yy = y(v).toFixed(1);
+    grid += `<line x1="${PAD_L}" x2="${CHART_W - PAD_R}" y1="${yy}" y2="${yy}"
       stroke="var(--grid)" stroke-width="1"/>
-    <text x="${PAD_L - 10}" y="${(y(p) + 4).toFixed(1)}" text-anchor="end"
-      font-size="11" fill="var(--muted)">${p >= 1000 ? (p / 1000).toFixed(0) + "k" : p}</text>`).join("");
+      <text x="${PAD_L - 12}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end"
+        font-size="10.5" fill="var(--muted)">${v >= 1000 ? (v / 1000) + "k" : v}</text>`;
+  }
 
-  const xTicks = [0, 0.25, 0.5, 0.75, 1].map(f => {
+  const xTicks = [0, 0.5, 1].map(f => {
     const t = maxT * f;
-    return `<text x="${x(t).toFixed(1)}" y="${H - 12}" text-anchor="${f === 0 ? "start" : f === 1 ? "end" : "middle"}"
-      font-size="11" fill="var(--muted)">${niceTime(t)}</text>`;
+    return `<text x="${x(t).toFixed(1)}" y="${H - 10}"
+      text-anchor="${f === 0 ? "start" : f === 1 ? "end" : "middle"}"
+      font-size="10.5" fill="var(--muted)">${niceTime(t)}</text>`;
   }).join("");
 
-  const r = points.length > 800 ? 1.7 : points.length > 250 ? 2.6 : 3.6;
-  const op = points.length > 800 ? 0.75 : 0.9;
+  const r = points.length > 900 ? 1.9 : points.length > 300 ? 2.7 : 3.8;
 
   const normal = [], threat = [];
   for (const [t, port, pkts, bad] of points) {
-    const c = `<circle cx="${x(t).toFixed(1)}" cy="${y(port).toFixed(1)}" r="${bad ? r + 1.4 : r}"/>`;
+    const c = `<circle cx="${x(t).toFixed(1)}" cy="${y(port).toFixed(1)}" r="${bad ? r + 2 : r}"/>`;
     (bad ? threat : normal).push(c);
   }
 
   return svgWrap(H, `
     ${grid}
-    <line x1="${PAD_L}" x2="${CHART_W - PAD_R}" y1="${PAD_T + plotH}" y2="${PAD_T + plotH}"
-      stroke="var(--axis)" stroke-width="1"/>
-    <g fill="var(--dim)" fill-opacity="${op}">${normal.join("")}</g>
+    <line x1="${PAD_L}" x2="${CHART_W - PAD_R}" y1="${(PAD_T + plotH).toFixed(1)}"
+      y2="${(PAD_T + plotH).toFixed(1)}" stroke="var(--axis)" stroke-width="1"/>
+    <g fill="var(--dim)">${normal.join("")}</g>
     <g fill="var(--ink)">${threat.join("")}</g>
-    <text x="${PAD_L - 10}" y="${PAD_T - 2}" text-anchor="end" font-size="10.5"
-      fill="var(--muted)" letter-spacing="0.8">PORT</text>`);
+    ${xTicks}
+    ${over ? `<text x="${CHART_W - PAD_R}" y="${PAD_T + 9}" text-anchor="end" font-size="10"
+      fill="var(--muted)">${over} above ${top >= 1000 ? (top / 1000) + "k" : top}</text>` : ""}`);
 }
 
 /* Packets over time, split by verdict. */

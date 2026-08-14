@@ -83,10 +83,29 @@ class TestAnalyse:
         wrpcap(str(path), packets)
 
         body = upload(path.read_bytes()).json()
+        # Every flow here is outbound to a service port, so none are filtered.
         assert len(body["points"]) == body["flow_count"]
         assert len(body["points"]) > len(body["flows"])
         for t, port, pkts, bad in body["points"]:
             assert t >= 0 and 0 <= port <= 65535 and pkts >= 1 and bad in (0, 1)
+
+    def test_reply_direction_is_not_charted_twice(self, tmp_path):
+        # One conversation, both directions. The chart should show the service
+        # side once, not the same exchange at 443 and again at 51000.
+        packets = []
+        for i in range(4):
+            out = IP(src="10.0.0.5", dst="10.0.0.9") / TCP(sport=51000, dport=443)
+            out.time = 1_700_000_000.0 + i * 0.01
+            back = IP(src="10.0.0.9", dst="10.0.0.5") / TCP(sport=443, dport=51000)
+            back.time = 1_700_000_000.0 + i * 0.01 + 0.005
+            packets += [out, back]
+        path = tmp_path / "pair.pcap"
+        wrpcap(str(path), packets)
+
+        body = upload(path.read_bytes()).json()
+        assert body["flow_count"] == 2
+        assert len(body["points"]) == 1
+        assert body["points"][0][1] == 443
 
     def test_first_flow_starts_at_zero(self, pcap_bytes):
         starts = [f["started_at"] for f in upload(pcap_bytes).json()["flows"]]
