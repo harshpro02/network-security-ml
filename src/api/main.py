@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from scapy.all import rdpcap, sniff
 
 from src.model.live_bridge import FlowTable, classify_flows, group_packets
+from src.model.scan_detector import find_scans
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -22,7 +23,7 @@ CAPTURE_SECONDS = int(os.getenv("CAPTURE_SECONDS", "30"))
 app = FastAPI(title="Guardian", description="ML network intrusion detection")
 
 
-def _payload(results, source, packets_read):
+def _payload(results, source, packets_read, alerts):
     ordered = sorted(results, key=lambda r: (not r["is_threat"], -r["packets"]))
     return {
         "source": source,
@@ -31,11 +32,18 @@ def _payload(results, source, packets_read):
         "threat_count": sum(1 for r in results if r["is_threat"]),
         "flows_returned": min(len(results), MAX_FLOWS_RETURNED),
         "flows": ordered[:MAX_FLOWS_RETURNED],
+        "alerts": alerts,
+        "alert_count": len(alerts),
     }
 
 
 def _verdicts_from_packets(packets, source):
-    return _payload(classify_flows(group_packets(packets)), source, len(packets))
+    return _payload(
+        classify_flows(group_packets(packets)),
+        source,
+        len(packets),
+        find_scans(packets),
+    )
 
 
 @app.get("/")
@@ -61,8 +69,14 @@ def scan():
         )
 
     table = FlowTable()
+    captured = []
+
+    def handle(packet):
+        captured.append(packet)
+        table.add(packet)
+
     try:
-        sniff(prn=table.add, timeout=CAPTURE_SECONDS)
+        sniff(prn=handle, timeout=CAPTURE_SECONDS)
     except PermissionError:
         raise HTTPException(
             status_code=503,
@@ -71,7 +85,12 @@ def scan():
     except OSError as exc:
         raise HTTPException(status_code=503, detail=f"Could not capture: {exc}")
 
-    payload = _payload(classify_flows(table.finish()), "live", table.packets_seen)
+    payload = _payload(
+        classify_flows(table.finish()),
+        "live",
+        table.packets_seen,
+        find_scans(captured),
+    )
     payload["capture_seconds"] = CAPTURE_SECONDS
     return payload
 

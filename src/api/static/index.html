@@ -89,6 +89,19 @@
   td.v.ok  { color: var(--good); }
   td.v.bad { color: var(--critical); }
 
+  .alerts { border: 1px solid var(--critical); padding: 12px 14px; margin-bottom: 16px; }
+  .alerts h3 {
+    margin: 0 0 9px; font-size: 11.5px; font-weight: 700; letter-spacing: .9px;
+    text-transform: uppercase; color: var(--critical);
+  }
+  .alerts .row { color: var(--ink); font-size: 12.5px; padding: 3px 0; }
+  .alerts .row b { color: var(--critical); font-weight: 700; }
+  .alerts .kind {
+    display: inline-block; min-width: 92px; color: var(--muted);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+  }
+  .alerts .note { color: var(--muted); font-size: 11px; padding-top: 8px; }
+
   .more { color: var(--muted); font-size: 11.5px; padding-top: 10px; }
   .warn { color: var(--muted); font-size: 12.5px; border-left: 2px solid var(--accent); padding-left: 12px; }
   .warn b { color: var(--ink-2); font-weight: 700; }
@@ -157,9 +170,24 @@ const fail = (title, detail) =>
   `<dl class="readout"><dt>status</dt><dd><span class="state bad">${esc(title)}</span>
    <div class="detail">${esc(detail)}</div></dd></dl>`;
 
+function alertBlock(alerts) {
+  if (!alerts.length) return "";
+  const rows = alerts.map(a => `<div class="row">
+    <span class="kind">${a.kind === "host_sweep" ? "host sweep" : "port scan"}</span>
+    <b>${esc(a.source)}</b> contacted <b>${a.count.toLocaleString()}</b>
+    ${a.kind === "host_sweep" ? "distinct hosts" : `distinct ports on ${esc(a.target)}`}
+    in ${a.window_seconds}s</div>`).join("");
+  return `<div class="alerts">
+    <h3>!! behavioural alert${alerts.length === 1 ? "" : "s"}</h3>${rows}
+    <div class="note">detected across flows, not by the per-flow model &mdash;
+    a scan is only visible in aggregate</div>
+  </div>`;
+}
+
 function render(d) {
   const flows = d.flows || [];
   const bad = d.threat_count || 0;
+  const alerts = d.alerts || [];
 
   if (!flows.length) {
     $("result").innerHTML = `<dl class="readout"><dt>status</dt>
@@ -171,12 +199,18 @@ function render(d) {
   const total = d.flow_count ?? flows.length;
   const ok = total - bad;
   const pct = (bad / total) * 100;
-  const clear = bad === 0;
+  const clear = bad === 0 && alerts.length === 0;
 
-  const headline = clear ? "clean" : `${bad} flow${bad === 1 ? "" : "s"} flagged`;
-  const detail = clear
-    ? `${total} conversation${total === 1 ? "" : "s"} scored, none match known attack patterns`
-    : `${bad} of ${total} conversations match patterns learned from known attacks`;
+  const parts = [];
+  if (alerts.length) parts.push(`${alerts.length} behavioural alert${alerts.length === 1 ? "" : "s"}`);
+  if (bad) parts.push(`${bad} flow${bad === 1 ? "" : "s"} flagged`);
+  const headline = parts.length ? parts.join(" · ") : "clean";
+
+  const detail = bad
+    ? `${bad} of ${total} conversations match patterns learned from known attacks`
+    : alerts.length
+      ? `no single conversation looks unusual, but their pattern across ${total} flows does`
+      : `${total} conversation${total === 1 ? "" : "s"} scored, none match known attack patterns`;
 
   const ordered = [...flows].sort((a, b) => (b.is_threat - a.is_threat) || (b.packets - a.packets));
   const shown = ordered.slice(0, ROW_CAP);
@@ -196,6 +230,7 @@ function render(d) {
   const src = { live: "live capture", upload: "uploaded file", demo: "recorded replay" }[d.source] || "—";
 
   $("result").innerHTML = `
+    ${alertBlock(alerts)}
     <dl class="readout">
       <dt>status</dt>
       <dd><span class="state ${clear ? "ok" : "bad"}">${headline}</span>
@@ -206,7 +241,7 @@ function render(d) {
     </dl>
     <div class="rule"></div>
     <div class="bar" role="img" aria-label="${ok} normal, ${bad} flagged">
-      ${ok ? `<span class="ok" style="width:${(ok / flows.length) * 100}%"></span>` : ""}
+      ${ok ? `<span class="ok" style="width:${(ok / total) * 100}%"></span>` : ""}
       ${bad ? `<span class="bad" style="width:${pct}%"></span>` : ""}
     </div>
     <div class="keys"><span><i class="k-ok"></i>normal ${ok}</span><span><i class="k-bad"></i>flagged ${bad}</span></div>

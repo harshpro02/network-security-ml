@@ -93,6 +93,27 @@ class TestAnalyse:
         assert body["flows_returned"] == main.MAX_FLOWS_RETURNED
         assert len(body["flows"]) == main.MAX_FLOWS_RETURNED
 
+    def test_scan_traffic_raises_a_behavioural_alert(self, tmp_path):
+        packets = []
+        for port in range(1, 400):
+            p = IP(src="10.0.0.66", dst="10.0.0.9") / TCP(sport=40000, dport=port, flags="S")
+            p.time = 1_700_000_000.0 + port * 0.001
+            packets.append(p)
+        path = tmp_path / "scan.pcap"
+        wrpcap(str(path), packets)
+
+        body = upload(path.read_bytes()).json()
+        assert body["alert_count"] == 1
+        alert = body["alerts"][0]
+        assert alert["kind"] == "port_scan"
+        assert alert["source"] == "10.0.0.66"
+        assert alert["count"] == 399
+
+    def test_ordinary_traffic_raises_no_alerts(self, pcap_bytes):
+        body = upload(pcap_bytes).json()
+        assert body["alert_count"] == 0
+        assert body["alerts"] == []
+
     def test_rejects_wrong_extension(self, pcap_bytes):
         assert upload(pcap_bytes, "notes.txt").status_code == 400
 
