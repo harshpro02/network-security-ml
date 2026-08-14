@@ -7,320 +7,285 @@
 <style>
   :root {
     color-scheme: dark;
-    --bg:      #000000;
-    --panel:   #0d0d0d;
-    --raised:  #151515;
-    --ink:     #ffffff;
-    --ink-2:   #9a9a9a;
-    --dim:     #4e4e4e;
-    --muted:   #626262;
-    --line:    #212121;
-    --line-2:  #2e2e2e;
-    --grid:    #1a1a1a;
-    --axis:    #2e2e2e;
+    --bg:     #000000;
+    --raised: #0e0e0e;
+    --hover:  #141414;
+    --ink:    #ffffff;
+    --ink-2:  #9b9b9b;
+    --dim:    #4a4a4a;
+    --muted:  #666666;
+    --line:   #1c1c1c;
+    --line-2: #2b2b2b;
+    --grid:   #171717;
+    --axis:   #2b2b2b;
     --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
     --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 14px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
-    display: flex; flex-direction: column; overflow: hidden;
   }
   .mono { font-family: var(--mono); }
   ::-webkit-scrollbar { width: 9px; height: 9px; }
   ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; }
-  ::-webkit-scrollbar-track { background: transparent; }
 
-  /* breadcrumb strip */
-  .crumb {
-    display: flex; align-items: center; gap: 10px; flex: none;
-    padding: 12px 22px; border-bottom: 1px solid var(--line);
-    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  /* top bar */
+  header {
+    position: sticky; top: 0; z-index: 20; background: var(--bg);
+    border-bottom: 1px solid var(--line);
   }
-  .crumb .sep { color: var(--line-2); }
-  .crumb .here { color: var(--ink); }
-  .crumb .grow { flex: 1; }
-  .live { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; letter-spacing: 1.1px; color: var(--ink-2); }
-  .live .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
-  .live .dot.on { background: var(--ink); box-shadow: 0 0 0 3px rgba(255,255,255,.13); }
+  .row1 { display: flex; align-items: center; gap: 26px; padding: 15px 30px 0; flex-wrap: wrap; }
+  .brand { font-size: 14px; font-weight: 700; letter-spacing: 4px; }
+  .row1 .grow { flex: 1; }
+  .state { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono);
+           font-size: 11px; letter-spacing: 1.2px; color: var(--muted); }
+  .state .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  .state .dot.on { background: var(--ink); box-shadow: 0 0 0 3px rgba(255,255,255,.12); }
 
-  /* shell */
-  .shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 232px minmax(0, 1fr); }
-
-  /* sidebar */
-  aside { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
-  .brand { padding: 22px 22px 20px; font-size: 15px; font-weight: 700; letter-spacing: 3.4px; border-bottom: 1px solid var(--line); }
-  .who { padding: 16px 22px; border-bottom: 1px solid var(--line); display: flex; gap: 11px; align-items: center; }
-  .who .ic { width: 30px; height: 30px; border: 1px solid var(--line-2); border-radius: 7px;
-             display: grid; place-items: center; flex: none; color: var(--ink-2); }
-  .who .n { font-size: 13px; font-weight: 560; }
-  .who .s { font-size: 10px; letter-spacing: 1.2px; color: var(--muted); text-transform: uppercase; }
-  nav { padding: 16px 12px; overflow: auto; flex: 1; min-height: 0; }
-  .navgroup { font-size: 9.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
-              padding: 14px 10px 7px; }
-  .navgroup:first-child { padding-top: 2px; }
-  .navitem {
-    display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
-    padding: 8px 11px; border-radius: 8px; font-size: 13.5px; color: var(--ink-2);
-    background: none; border: 1px solid transparent; cursor: pointer; font-family: inherit;
-    transition: background .13s, color .13s;
+  .tabs { display: flex; gap: 2px; padding: 12px 30px 0; overflow-x: auto; }
+  .tab {
+    appearance: none; background: none; border: none; font: inherit; cursor: pointer;
+    color: var(--muted); font-size: 13px; padding: 9px 14px 13px; white-space: nowrap;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .13s;
   }
-  .navitem .bullet { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: none; }
-  .navitem:hover { color: var(--ink); background: var(--raised); }
-  .navitem.active { color: var(--ink); background: var(--raised); border-color: var(--line-2); font-weight: 560; }
-  .navitem.active .bullet { background: var(--ink); }
-  .navitem .count { margin-left: auto; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .side-foot { padding: 14px 22px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .tab:hover { color: var(--ink-2); }
+  .tab.on { color: var(--ink); border-bottom-color: var(--ink); font-weight: 560; }
+  .tab .num { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 7px; }
+  .tab.on .num { color: var(--ink-2); }
 
-  /* main */
-  main { min-height: 0; overflow: auto; padding: 24px 26px 30px; }
-  .pagehead { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
-  .pagehead h1 { margin: 0 0 5px; font-size: 20px; font-weight: 620; letter-spacing: -.4px; }
-  .pagehead p { margin: 0; font-size: 13px; color: var(--muted); }
-  .acts { display: flex; gap: 7px; flex-wrap: wrap; }
+  /* actions */
+  .actionbar { display: flex; align-items: center; gap: 9px; padding: 16px 30px;
+               border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   button {
     display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 12.5px;
-    font-weight: 550; padding: 7px 14px; border-radius: 8px; cursor: pointer;
+    font-weight: 550; padding: 8px 15px; border-radius: 6px; cursor: pointer;
     border: 1px solid var(--line-2); background: transparent; color: var(--ink-2);
-    transition: border-color .14s, background .14s, color .14s;
+    transition: color .13s, border-color .13s;
   }
   button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
   button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  button:disabled { opacity: .3; cursor: not-allowed; }
-  button.primary { background: var(--ink); border-color: var(--ink); color: #000; font-weight: 600; }
-  button.primary:hover:not(:disabled) { background: #dedede; border-color: #dedede; }
+  button:disabled { opacity: .28; cursor: not-allowed; }
+  button.primary { background: var(--ink); border-color: var(--ink); color: #000; font-weight: 620; }
+  button.primary:hover:not(:disabled) { background: #dcdcdc; border-color: #dcdcdc; }
   .spin { width: 12px; height: 12px; border-radius: 50%; display: none; flex: none;
           border: 2px solid currentColor; border-right-color: transparent; animation: spin .6s linear infinite; }
   button.busy .spin { display: block; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .actionbar .msg { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
 
-  /* cards */
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
-  .grid4 { display: grid; grid-template-columns: 1.55fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  @media (max-width: 1180px) { .grid4 { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 720px)  { .grid4 { grid-template-columns: 1fr; } }
-  .kpi { padding: 18px 20px; display: flex; flex-direction: column; min-height: 150px; }
-  .kpi .lab { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); line-height: 1.5; }
-  .kpi .big { font-size: 40px; font-weight: 660; letter-spacing: -2px; line-height: 1.05; margin-top: auto; }
-  .kpi .big.sm { font-size: 26px; letter-spacing: -1.1px; }
-  .kpi .sub { font-size: 12px; color: var(--ink-2); margin-top: 6px; line-height: 1.45; }
-  .kpi .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-  .badge {
-    font-size: 10px; font-weight: 660; letter-spacing: .9px; text-transform: uppercase;
-    padding: 4px 9px; border-radius: 99px; border: 1px solid var(--line-2); color: var(--ink-2); white-space: nowrap;
-  }
-  .badge.on { background: var(--ink); color: #000; border-color: var(--ink); }
+  /* sections, no cards */
+  main { padding-bottom: 80px; }
+  .view { display: none; } .view.on { display: block; }
+  section { padding: 34px 30px; border-bottom: 1px solid var(--line); }
+  .shead { font-size: 10px; letter-spacing: 1.7px; text-transform: uppercase;
+           color: var(--muted); margin-bottom: 22px; display: flex; justify-content: space-between; gap: 14px; }
 
-  /* dot matrix */
-  .matrix { display: grid; grid-template-columns: repeat(20, 1fr); gap: 4px; margin-top: 14px; }
-  .matrix i { display: block; aspect-ratio: 1; border-radius: 50%; background: var(--line-2); }
-  .matrix i.on { background: var(--ink); }
+  /* hero */
+  .hero { display: grid; grid-template-columns: minmax(210px, 300px) 1fr; gap: 46px; align-items: start; }
+  @media (max-width: 780px) { .hero { grid-template-columns: 1fr; gap: 22px; } }
+  .figure { font-size: clamp(56px, 10vw, 104px); font-weight: 640; letter-spacing: -5px; line-height: .88; }
+  .figure-sub { font-size: 10.5px; letter-spacing: 1.7px; text-transform: uppercase; color: var(--muted); margin-top: 14px; }
+  .verdict-t { margin: 0 0 12px; font-size: clamp(21px, 3vw, 29px); font-weight: 620; letter-spacing: -.9px; line-height: 1.18; }
+  .verdict-p { margin: 0; font-size: 15px; line-height: 1.68; color: var(--ink-2); max-width: 66ch; }
+  .verdict-p b { color: var(--ink); font-weight: 620; }
 
-  .panelhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-               padding: 14px 18px; border-bottom: 1px solid var(--line); }
-  .eyebrow { font-size: 10px; font-weight: 620; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
-  .pbody { padding: 18px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 0; margin-top: 30px; border-top: 1px solid var(--line); }
+  .fact { padding: 16px 30px 4px 0; margin-right: 30px; }
+  .fact .v { font-size: 21px; font-weight: 640; letter-spacing: -.7px; }
+  .fact .k { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  /* bars strip */
+  .strip { display: flex; height: 3px; gap: 2px; margin-top: 26px; background: var(--line); }
+  .strip span { display: block; height: 100%; }
+  .strip .ok { background: var(--dim); } .strip .bad { background: var(--ink); }
+
+  /* charts */
   .chartbox svg { display: block; width: 100%; overflow: visible; }
-  .caption { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin: 12px 0 0; }
+  .caption { font-size: 13px; color: var(--muted); line-height: 1.65; margin: 18px 0 0; max-width: 84ch; }
   .caption b { color: var(--ink-2); font-weight: 600; }
-  .legend { display: flex; gap: 18px; font-size: 11.5px; color: var(--muted); margin-top: 12px; }
+  .legend { display: flex; gap: 20px; font-size: 11.5px; color: var(--muted); margin-top: 14px; }
   .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; }
   .legend .k-ok { background: var(--dim); } .legend .k-bad { background: var(--ink); }
 
-  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+  /* alerts as records */
+  .rec { padding: 24px 0; border-top: 1px solid var(--line); display: grid;
+         grid-template-columns: 132px 1fr; gap: 26px; }
+  .rec:first-child { border-top: none; padding-top: 0; }
+  @media (max-width: 700px) { .rec { grid-template-columns: 1fr; gap: 10px; } }
+  .rec .kind { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--ink);
+               padding-top: 4px; }
+  .rec .kind::before { content: ""; display: block; width: 26px; height: 2px; background: var(--ink); margin-bottom: 10px; }
+  .rec h3 { margin: 0 0 9px; font-size: 18px; font-weight: 620; letter-spacing: -.4px; line-height: 1.35; }
+  .rec p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.7; max-width: 76ch; }
+  .rec p b { color: var(--ink); font-weight: 620; }
+  .empty { font-size: 13.5px; color: var(--muted); line-height: 1.7; max-width: 76ch; }
 
-  /* alerts */
-  .arow { padding: 18px; }
-  .arow + .arow { border-top: 1px solid var(--line); }
-  .atag { display: inline-block; font-size: 10px; font-weight: 660; letter-spacing: .9px; text-transform: uppercase;
-          background: var(--ink); color: #000; border-radius: 5px; padding: 3px 8px; margin-bottom: 11px; }
-  .asay { margin: 0 0 7px; font-size: 16px; font-weight: 600; letter-spacing: -.3px; line-height: 1.35; }
-  .awhy { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.6; max-width: 74ch; }
-  .awhy b { color: var(--ink); font-weight: 620; }
-  .empty { padding: 22px 18px; font-size: 13px; color: var(--muted); line-height: 1.6; }
-
-  /* ranked list */
-  .rank { padding: 8px; }
-  .rrow { display: grid; grid-template-columns: 20px 1fr auto; gap: 12px; align-items: center;
-          padding: 9px 11px; border-radius: 8px; font-size: 13px; color: var(--ink-2); }
-  .rrow.hi { background: var(--raised); border: 1px solid var(--line-2); color: var(--ink); font-weight: 560; }
-  .rrow .i { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .rrow .val { font-variant-numeric: tabular-nums; font-size: 12.5px; }
-
-  .bars { padding: 4px 0; }
-  .brow { display: grid; grid-template-columns: 132px 1fr 66px; gap: 12px; align-items: center; padding: 6px 0; }
-  .bname { font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
-  .btrack { height: 7px; background: var(--line); border-radius: 999px; overflow: hidden; }
-  .bfill { height: 100%; background: var(--ink); border-radius: 999px; }
-  .bval { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
-
-  /* table */
+  /* tables */
+  .tablewrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
-  th { position: sticky; top: 0; background: var(--panel); z-index: 1; text-align: left;
-       font-size: 10px; font-weight: 620; letter-spacing: 1.1px; text-transform: uppercase;
-       color: var(--muted); padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  td { padding: 9px 16px; border-bottom: 1px solid var(--line); color: var(--ink-2); }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover td { background: var(--raised); }
+  th { text-align: left; font-size: 9.5px; font-weight: 620; letter-spacing: 1.3px; text-transform: uppercase;
+       color: var(--muted); padding: 0 20px 12px 0; border-bottom: 1px solid var(--line-2); }
+  td { padding: 11px 20px 11px 0; border-bottom: 1px solid var(--line); color: var(--ink-2); }
+  tbody tr:hover td { color: var(--ink); }
   tbody tr.hi td { color: var(--ink); }
   .n { text-align: right; font-variant-numeric: tabular-nums; }
-  .vtag { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; }
+  .vtag { display: inline-flex; align-items: center; gap: 7px; }
   .vtag i { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex: none; }
   .vtag.bad { color: var(--ink); font-weight: 620; }
   .vtag.bad i { background: var(--ink); }
+  .chip { display: inline-block; font-size: 9.5px; letter-spacing: .9px; text-transform: uppercase;
+          border: 1px solid var(--line-2); border-radius: 3px; padding: 1px 6px; color: var(--muted); margin-left: 8px; }
+  .chip.solid { background: var(--ink); border-color: var(--ink); color: #000; font-weight: 660; }
 
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  @media (max-width: 900px) { .steps { grid-template-columns: 1fr; } }
-  .steps .card { padding: 22px 20px; }
-  .steps .num { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
-  .steps h3 { margin: 0 0 9px; font-size: 16px; font-weight: 620; letter-spacing: -.3px; }
-  .steps p { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.65; }
-  .prose { max-width: 76ch; }
-  .prose p { font-size: 13.5px; color: var(--ink-2); line-height: 1.7; }
-  .prose b { color: var(--ink); font-weight: 600; }
+  /* device list */
+  .dev { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center;
+         padding: 18px 0; border-bottom: 1px solid var(--line); }
+  .dev:last-child { border-bottom: none; }
+  .dev .name { font-size: 15.5px; font-weight: 600; letter-spacing: -.2px; }
+  .dev .meta { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+  .dev .right { text-align: right; }
+  .dev .amt { font-size: 15px; font-weight: 620; font-variant-numeric: tabular-nums; }
+  .dev .amtk { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-  .view { display: none; } .view.on { display: block; }
-  @media (max-width: 860px) {
-    body { overflow: auto; }
-    .shell { grid-template-columns: 1fr; }
-    aside { border-right: none; border-bottom: 1px solid var(--line); }
-    nav { display: flex; gap: 6px; overflow-x: auto; padding: 10px; }
-    .navgroup, .who, .side-foot { display: none; }
-    .navitem { white-space: nowrap; }
-  }
+  .bars { max-width: 720px; }
+  .brow { display: grid; grid-template-columns: 150px 1fr 74px; gap: 14px; align-items: center; padding: 8px 0; }
+  .bname { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+  .btrack { height: 6px; background: var(--line); overflow: hidden; }
+  .bfill { height: 100%; background: var(--ink); }
+  .bval { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+  @media (max-width: 900px) { .steps { grid-template-columns: 1fr; gap: 28px; } }
+  .steps .num { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .steps h3 { margin: 0 0 10px; font-size: 17px; font-weight: 620; letter-spacing: -.4px; }
+  .steps p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.7; }
+  .prose p { font-size: 14px; color: var(--ink-2); line-height: 1.75; max-width: 78ch; }
+  .prose b { color: var(--ink); font-weight: 620; }
 </style>
 </head>
 <body>
 
-<div class="crumb">
-  <span>guardian</span><span class="sep">/</span>
-  <span>dashboard</span><span class="sep">/</span>
-  <span class="here" id="crumb-here">Overview</span>
-  <span class="grow"></span>
-  <span class="live" id="mode"><span class="dot"></span>CONNECTING</span>
-</div>
-
-<div class="shell">
-  <aside>
+<header>
+  <div class="row1">
     <div class="brand">GUARDIAN</div>
-    <div class="who">
-      <div class="ic">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      </div>
-      <div><div class="n">This machine</div><div class="s" id="who-sub">No capture yet</div></div>
-    </div>
-    <nav>
-      <div class="navgroup">Detect</div>
-      <button class="navitem active" data-view="overview"><span class="bullet"></span>Overview</button>
-      <button class="navitem" data-view="behaviour"><span class="bullet"></span>Behaviour
-        <span class="count" id="nav-alerts"></span></button>
-      <div class="navgroup">Inspect</div>
-      <button class="navitem" data-view="connections"><span class="bullet"></span>Connections
-        <span class="count" id="nav-flows"></span></button>
-      <button class="navitem" data-view="destinations"><span class="bullet"></span>Destinations</button>
-      <div class="navgroup">Learn</div>
-      <button class="navitem" data-view="how"><span class="bullet"></span>How it works</button>
-    </nav>
-    <div class="side-foot">Random forest, CICIDS2017</div>
-  </aside>
+    <div class="grow"></div>
+    <div class="state" id="mode"><span class="dot"></span>CONNECTING</div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-view="overview">Overview</button>
+    <button class="tab" data-view="devices">Devices<span class="num" id="n-dev"></span></button>
+    <button class="tab" data-view="behaviour">Behaviour<span class="num" id="n-alert"></span></button>
+    <button class="tab" data-view="connections">Connections<span class="num" id="n-flow"></span></button>
+    <button class="tab" data-view="how">How it works</button>
+  </div>
+</header>
 
-  <main>
-    <div class="pagehead">
-      <div><h1 id="page-title">Network overview</h1>
-        <p id="page-sub">Press Run demo to replay a real recorded attack.</p></div>
-      <div class="acts">
-        <button class="primary" id="btn-demo"><span class="spin"></span>Run demo</button>
-        <button id="btn-upload"><span class="spin"></span>Upload capture</button>
-        <button id="btn-scan"><span class="spin"></span>Scan live</button>
-        <input type="file" id="file" accept=".pcap,.pcapng" hidden>
-      </div>
-    </div>
-
-    <section class="view on" id="v-overview">
-      <div class="grid4" id="kpis"></div>
-      <div class="card">
-        <div class="panelhead"><span class="eyebrow">Ports contacted over time</span>
-          <span class="eyebrow" id="map-count"></span></div>
-        <div class="pbody">
-          <div class="chartbox" id="map"></div>
-          <div class="legend" id="map-legend"></div>
-          <p class="caption" id="map-caption">Each dot will be one connection. Its height is the
-            port it reached, left to right is when it happened.</p>
-        </div>
-      </div>
-      <div class="split">
-        <div class="card">
-          <div class="panelhead"><span class="eyebrow">Traffic over time</span></div>
-          <div class="pbody"><div class="chartbox" id="timeline"></div></div>
-        </div>
-        <div class="card">
-          <div class="panelhead"><span class="eyebrow">What the model found</span></div>
-          <div class="rank" id="verdict-rank"><div class="empty">Nothing analysed yet.</div></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="view" id="v-behaviour">
-      <div class="card" id="alerts"><div class="empty">Nothing analysed yet.</div></div>
-    </section>
-
-    <section class="view" id="v-connections">
-      <div class="card"><div id="flows"><div class="empty">Nothing analysed yet.</div></div></div>
-    </section>
-
-    <section class="view" id="v-destinations">
-      <div class="card">
-        <div class="panelhead"><span class="eyebrow">Busiest destinations</span></div>
-        <div class="pbody" id="talkers"><div class="empty">Nothing analysed yet.</div></div>
-      </div>
-    </section>
-
-    <section class="view" id="v-how">
-      <div class="steps">
-        <div class="card"><div class="num">Step 1</div><h3>Capture the traffic</h3>
-          <p>Raw packets are read off the network card and grouped into conversations, called flows.
-             One flow is one machine talking to one port on another machine.</p></div>
-        <div class="card"><div class="num">Step 2</div><h3>Score every conversation</h3>
-          <p>A random forest trained on 2.8 million labelled records judges each flow on its duration,
-             size and packet count. It catches floods and brute force attempts.</p></div>
-        <div class="card"><div class="num">Step 3</div><h3>Watch the bigger picture</h3>
-          <p>Some attacks look ordinary one flow at a time. A second layer counts behaviour across
-             flows, which is the only way a port scan or a beacon becomes visible.</p></div>
-      </div>
-      <div class="card" style="margin-top:12px"><div class="pbody prose">
-        <p><b>Why two layers.</b> A single connection to a closed port is four numbers: almost no
-        duration, one packet, no data. A single ordinary connection is the same four numbers. No
-        model can separate them, because the difference is not in the connection, it is in the
-        pattern. One machine touching a thousand ports in a minute is an attack. The same machine
-        touching three is a browser.</p>
-        <p><b>What that cost.</b> Tested against a real port scan captured on a live machine, the
-        model alone caught 3 connections out of 2,050. The behaviour layer caught the scan outright.
-        Both numbers are in the repository, along with the three train-and-serve mismatches found
-        while chasing the gap.</p>
-      </div></div>
-    </section>
-  </main>
+<div class="actionbar">
+  <button class="primary" id="btn-demo"><span class="spin"></span>Run demo</button>
+  <button id="btn-scan"><span class="spin"></span>Watch this network</button>
+  <button id="btn-upload"><span class="spin"></span>Upload capture</button>
+  <input type="file" id="file" accept=".pcap,.pcapng" hidden>
+  <span class="msg" id="msg">Replays a real port scan recorded on a live machine.</span>
 </div>
+
+<main>
+  <section class="view on" id="v-overview">
+    <div class="hero">
+      <div>
+        <div class="figure" id="hero-figure">0</div>
+        <div class="figure-sub" id="hero-label">Ports contacted</div>
+      </div>
+      <div>
+        <h2 class="verdict-t" id="hero-title">Nothing analysed yet</h2>
+        <p class="verdict-p" id="hero-text">Press <b>Run demo</b> to replay a real port scan that
+          was recorded on a live machine, or <b>Watch this network</b> to look at your own traffic
+          and see which devices are on your WiFi.</p>
+        <div class="facts" id="facts"></div>
+      </div>
+    </div>
+    <div class="strip" id="strip"></div>
+  </section>
+
+  <section class="view on" id="v-overview-chart">
+    <div class="shead"><span>Ports contacted over time</span><span id="map-count"></span></div>
+    <div class="chartbox" id="map"></div>
+    <div class="legend"><span><i class="k-ok"></i>Rated normal</span><span><i class="k-bad"></i>Rated an attack</span></div>
+    <p class="caption" id="map-caption">Each dot will be one connection. Its height is the port it
+      reached, left to right is when it happened.</p>
+  </section>
+
+  <section class="view on" id="v-overview-time">
+    <div class="shead"><span>Traffic over time</span></div>
+    <div class="chartbox" id="timeline"></div>
+  </section>
+
+  <section class="view" id="v-devices">
+    <div class="shead"><span>Devices seen on this network</span><span id="dev-count"></span></div>
+    <div id="devices"><p class="empty">Nothing analysed yet. Press <b>Watch this network</b> to
+      listen for the devices around you.</p></div>
+    <p class="caption">Devices are found by listening, not by probing. Anything on the network
+      announces itself eventually, which is how the two devices above were found even though they
+      never answered a direct request. Encrypted traffic between other devices cannot be read
+      from here, and no tool running on a laptop can read it.</p>
+  </section>
+
+  <section class="view" id="v-behaviour">
+    <div class="shead"><span>Patterns across connections</span><span id="beh-count"></span></div>
+    <div id="alerts"><p class="empty">Nothing analysed yet.</p></div>
+  </section>
+
+  <section class="view" id="v-connections">
+    <div class="shead"><span>Every conversation, scored one at a time</span><span id="conn-count"></span></div>
+    <div class="tablewrap" id="flows"><p class="empty">Nothing analysed yet.</p></div>
+  </section>
+
+  <section class="view" id="v-destinations-placeholder" style="display:none"></section>
+
+  <section class="view" id="v-how">
+    <div class="steps">
+      <div><div class="num">Step 1</div><h3>Capture the traffic</h3>
+        <p>Raw packets are read off the network card and grouped into conversations, called flows.
+           One flow is one machine talking to one port on another machine.</p></div>
+      <div><div class="num">Step 2</div><h3>Score every conversation</h3>
+        <p>A random forest trained on 2.8 million labelled records judges each flow on its duration,
+           size and packet count. It catches floods and brute force attempts.</p></div>
+      <div><div class="num">Step 3</div><h3>Watch the bigger picture</h3>
+        <p>Some attacks look ordinary one flow at a time. A second layer compares flows against
+           each other, which is the only way a port scan or a beacon becomes visible.</p></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-how-2">
+    <div class="shead"><span>Why two layers</span></div>
+    <div class="prose">
+      <p>A single connection to a closed port is four numbers: almost no duration, one packet, no
+      data. A single ordinary connection is the same four numbers. <b>No model can separate them</b>,
+      because the difference is not in the connection, it is in the pattern. One machine touching a
+      thousand ports in a minute is an attack. The same machine touching three is a browser.</p>
+      <p>Tested against a real port scan captured on a live machine, the model alone caught
+      <b>3 connections out of 2,050</b>. The behaviour layer caught the scan outright. Both numbers
+      are in the repository, along with the three train-and-serve mismatches found while chasing
+      the gap, and a day-held-out evaluation showing the usual accuracy figure for this dataset is
+      mostly memorisation.</p>
+    </div>
+  </section>
+</main>
 
 <script src="/static/charts.js"></script>
 <script>
 const PROTO = { 1: "ICMP", 6: "TCP", 17: "UDP" };
 const ROW_CAP = 250;
 const BTNS = ["btn-demo", "btn-upload", "btn-scan"];
-const TITLES = {
-  overview:     ["Network overview", "What the traffic looks like, and whether any of it is an attack."],
-  behaviour:    ["Behaviour", "Patterns that only appear when connections are compared against each other."],
-  connections:  ["Connections", "Every conversation the capture contained, scored one at a time."],
-  destinations: ["Destinations", "Which machines received the most data."],
-  how:          ["How it works", "Three steps, and why one model was not enough."],
+const GROUPS = {
+  overview: ["v-overview", "v-overview-chart", "v-overview-time"],
+  devices: ["v-devices"],
+  behaviour: ["v-behaviour"],
+  connections: ["v-connections"],
+  how: ["v-how", "v-how-2"],
 };
 const $ = id => document.getElementById(id);
-let liveOff = false, current = "overview";
+let liveOff = false;
 
 const esc = s => String(s).replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -330,17 +295,13 @@ const bytes = n =>
   n < 1048576 ? (n / 1024).toFixed(1) + " KB" :
   (n / 1048576).toFixed(1) + " MB";
 
-document.querySelectorAll(".navitem").forEach(b => b.onclick = () => show(b.dataset.view));
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => show(t.dataset.view));
 
 function show(view) {
-  current = view;
-  document.querySelectorAll(".navitem").forEach(b => b.classList.toggle("active", b.dataset.view === view));
-  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + view));
-  const [t, s] = TITLES[view];
-  $("page-title").textContent = t;
-  $("page-sub").textContent = s;
-  $("crumb-here").textContent = t;
-  document.querySelector("main").scrollTop = 0;
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.view === view));
+  const wanted = new Set(GROUPS[view]);
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", wanted.has(s.id)));
+  window.scrollTo(0, 0);
 }
 
 function setBusy(id, busy, msg) {
@@ -348,107 +309,133 @@ function setBusy(id, busy, msg) {
     $(b).disabled = busy || (b === "btn-scan" && liveOff);
     $(b).classList.toggle("busy", busy && b === id);
   });
-  if (msg) $("page-sub").textContent = msg;
+  if (msg) $("msg").textContent = msg;
 }
 
-function matrix(onCount, total) {
-  const cells = 100;
-  const lit = Math.max(0, Math.min(cells, Math.round((onCount / (total || 1)) * cells)));
-  let out = "";
-  for (let i = 0; i < cells; i++) out += `<i class="${i < lit ? "on" : ""}"></i>`;
-  return `<div class="matrix">${out}</div>`;
-}
-
-function alertRows(alerts) {
+function alertRecords(alerts) {
   if (!alerts.length) {
-    return `<div class="empty">Nothing unusual across the connections as a group. A port scan,
-      a sweep of the network, or repeated timed check-ins would be listed here.</div>`;
+    return `<p class="empty">Nothing unusual across the connections as a group. A port scan, a
+      sweep of the network, a device that has never been here before, or software checking in on
+      a fixed timer would all be listed here.</p>`;
   }
   return alerts.map(a => {
-    let tag, say, why;
+    let kind, title, body;
     if (a.kind === "beacon") {
-      tag = "Beacon";
-      say = `Something is checking in with ${esc(a.target)} on a timer.`;
-      why = `It connected <b>${a.count}</b> times, once every <b>${a.interval_seconds} seconds</b>,
+      kind = "Beacon";
+      title = `Something is checking in with ${esc(a.target)} on a timer.`;
+      body = `It connected <b>${a.count}</b> times, once every <b>${a.interval_seconds} seconds</b>,
         varying by only ${(a.jitter * 100).toFixed(0)}%. People do not browse that evenly. Software
         calling home does, which can be an update checker or something waiting for instructions.`;
     } else if (a.kind === "host_sweep") {
-      tag = "Host sweep";
-      say = `${esc(a.source)} went looking for other machines on this network.`;
-      why = `It contacted <b>${a.count.toLocaleString()} different devices</b> in ${a.window_seconds}
+      kind = "Host sweep";
+      title = `${esc(a.source)} went looking for other machines on this network.`;
+      body = `It contacted <b>${a.count.toLocaleString()} different devices</b> in ${a.window_seconds}
         seconds, which is how an intruder maps out what else is reachable once they are inside.`;
+    } else if (a.kind === "new_device") {
+      kind = "New device";
+      title = `${esc(a.vendor || "An unrecognised device")} joined this network.`;
+      body = `It was seen at <b>${esc(a.source)}</b> and has not been here in any earlier capture.
+        On a home network that is usually a phone or a visitor. It is worth a look when it is not.`;
     } else {
-      tag = "Port scan";
-      say = `${esc(a.source)} tried the doors on ${esc(a.target)}, one after another.`;
-      why = `It reached <b>${a.count.toLocaleString()} different ports</b> in ${a.window_seconds}
+      kind = "Port scan";
+      title = `${esc(a.source)} tried the doors on ${esc(a.target)}, one after another.`;
+      body = `It reached <b>${a.count.toLocaleString()} different ports</b> in ${a.window_seconds}
         seconds. Ordinary traffic touches a handful. Trying thousands is how an attacker finds which
         services are running before picking one to break into.`;
     }
-    return `<div class="arow"><span class="atag">${tag}</span>
-      <p class="asay">${say}</p><p class="awhy">${why}</p></div>`;
+    return `<div class="rec"><div class="kind">${kind}</div>
+      <div><h3>${title}</h3><p>${body}</p></div></div>`;
+  }).join("");
+}
+
+function deviceList(devices) {
+  if (!devices.length) {
+    return `<p class="empty">No devices seen. A recorded file made on one machine will only ever
+      contain that machine. Press <b>Watch this network</b> to listen live.</p>`;
+  }
+  return devices.map(d => {
+    const name = d.hostname || d.vendor || "Unrecognised device";
+    const ip = d.ips[0] || "no address seen";
+    const chips = [
+      d.role === "gateway" ? `<span class="chip solid">Router</span>` : "",
+      d.randomised_mac ? `<span class="chip">Randomised MAC</span>` : "",
+    ].join("");
+    return `<div class="dev">
+      <div><div class="name">${esc(name)}${chips}</div>
+        <div class="meta">${esc(ip)} &nbsp;&middot;&nbsp; ${esc(d.mac)}</div></div>
+      <div class="right"><div class="amt">${bytes(d.bytes)}</div>
+        <div class="amtk">${d.packets.toLocaleString()} packets</div></div>
+    </div>`;
   }).join("");
 }
 
 function render(d) {
   const flows = d.flows || [], alerts = d.alerts || [], points = d.points || [];
+  const devices = d.devices || [];
   const bad = d.threat_count || 0;
   const total = d.flow_count ?? flows.length;
   const ok = total - bad;
-  const distinctPorts = new Set(points.map(p => p[1])).size;
-  const src = { live: "Live capture", upload: "Uploaded file", demo: "Recorded replay" }[d.source] || "n/a";
+  const pct = total ? (bad / total) * 100 : 0;
+  const ports = new Set(points.map(p => p[1])).size;
   const attacked = alerts.length > 0 || bad > 0;
+  const scanned = alerts.some(a => a.kind === "port_scan");
 
-  $("who-sub").textContent = src;
-  $("nav-alerts").textContent = alerts.length || "";
-  $("nav-flows").textContent = total ? total.toLocaleString() : "";
+  $("n-dev").textContent = devices.length || "";
+  $("n-alert").textContent = alerts.length || "";
+  $("n-flow").textContent = total ? total.toLocaleString() : "";
+  $("dev-count").textContent = devices.length ? `${devices.length} found` : "";
+  $("beh-count").textContent = alerts.length ? `${alerts.length} found` : "none";
+  $("conn-count").textContent = total ? `${total.toLocaleString()} total` : "";
 
-  $("kpis").innerHTML = `
-    <div class="card kpi">
-      <div class="top"><div class="lab">Verdict</div>
-        <span class="badge ${attacked ? "on" : ""}">${attacked ? "Under attack" : "Clear"}</span></div>
-      <div class="big">${distinctPorts.toLocaleString()}</div>
-      <div class="lab" style="margin-top:6px">Ports contacted</div>
-      <div class="sub">${attacked
-        ? "Something worked through the port range in order. Normal browsing touches about three."
-        : "Clustered on the few ports normal software uses."}</div>
-      ${matrix(Math.min(distinctPorts, 1024), 1024)}
-    </div>
-    <div class="card kpi">
-      <div class="lab">Conversations</div>
-      <div class="big">${total.toLocaleString()}</div>
-      <div class="sub">One machine talking to one port on another. ${(d.packets_read || 0).toLocaleString()} packets read.</div>
-    </div>
-    <div class="card kpi">
-      <div class="lab">Rated an attack<br>by the model</div>
-      <div class="big">${bad.toLocaleString()}</div>
-      <div class="sub">Judged one conversation at a time, on duration, size and packet count.</div>
-    </div>
-    <div class="card kpi">
-      <div class="lab">Behaviour<br>alerts</div>
-      <div class="big">${alerts.length}</div>
-      <div class="sub">Found only by comparing conversations against each other.</div>
-    </div>`;
+  if (scanned) {
+    $("hero-figure").textContent = ports.toLocaleString();
+    $("hero-label").textContent = "Ports contacted";
+    $("hero-title").textContent = "This machine was scanned.";
+    $("hero-text").innerHTML = `Guardian read <b>${(d.packets_read || 0).toLocaleString()} packets</b>
+      and sorted them into <b>${total.toLocaleString()} conversations</b>. Almost every one looks
+      ordinary on its own, and the model rated them that way. Together they are an attack: something
+      worked through <b>${ports.toLocaleString()} different ports</b> in about a minute, which is how
+      an intruder finds a way in.`;
+  } else if (attacked) {
+    $("hero-figure").textContent = (bad + alerts.length).toLocaleString();
+    $("hero-label").textContent = "Things worth a look";
+    $("hero-title").textContent = "Something here needs attention.";
+    $("hero-text").innerHTML = `Out of <b>${total.toLocaleString()}</b> conversations,
+      <b>${bad}</b> matched patterns learned from known attacks and <b>${alerts.length}</b>
+      pattern${alerts.length === 1 ? "" : "s"} stood out across the traffic as a whole.`;
+  } else {
+    $("hero-figure").textContent = devices.length || total.toLocaleString();
+    $("hero-label").textContent = devices.length ? "Devices on this network" : "Conversations";
+    $("hero-title").textContent = "Nothing here looks like an attack.";
+    $("hero-text").innerHTML = `Guardian read <b>${(d.packets_read || 0).toLocaleString()} packets</b>
+      across <b>${total.toLocaleString()} conversations</b>${devices.length
+        ? ` from <b>${devices.length} device${devices.length === 1 ? "" : "s"}</b>` : ""} and found
+      nothing resembling a known attack, and no suspicious pattern across them either.`;
+  }
+
+  $("facts").innerHTML = `
+    <div class="fact"><div class="v">${total.toLocaleString()}</div><div class="k">Conversations</div></div>
+    <div class="fact"><div class="v">${bad.toLocaleString()}</div><div class="k">Rated an attack by the model</div></div>
+    <div class="fact"><div class="v">${alerts.length}</div><div class="k">Behaviour alerts</div></div>
+    <div class="fact"><div class="v">${devices.length}</div><div class="k">Devices seen</div></div>
+    <div class="fact"><div class="v">${(d.packets_read || 0).toLocaleString()}</div><div class="k">Packets read</div></div>`;
+
+  $("strip").innerHTML =
+    `${ok ? `<span class="ok" style="width:${(ok / (total || 1)) * 100}%"></span>` : ""}
+     ${bad ? `<span class="bad" style="width:${Math.max(pct, 0.5)}%"></span>` : ""}`;
 
   $("map").innerHTML = portMap(points);
   $("map-count").textContent = `${points.length.toLocaleString()} connections`;
-  $("map-legend").innerHTML = `<span><i class="k-ok"></i>Rated normal</span><span><i class="k-bad"></i>Rated an attack</span>`;
-  $("map-caption").innerHTML = distinctPorts > 200
+  $("map-caption").innerHTML = ports > 200
     ? `<b>Each dot is one connection.</b> The climbing line is one machine working through the ports
        in order, which is what a scan looks like. Five minutes of ordinary browsing on this network
        touched <b>3</b> ports.`
-    : `<b>Each dot is one connection.</b> This traffic used <b>${distinctPorts.toLocaleString()}</b>
-       ports, clustered where normal software sits. A scan would fill the chart bottom to top.`;
-
+    : `<b>Each dot is one connection.</b> This traffic used <b>${ports.toLocaleString()}</b> ports,
+       clustered where normal software sits. A scan would fill the chart bottom to top.`;
   $("timeline").innerHTML = timeline(points);
 
-  $("verdict-rank").innerHTML = `
-    <div class="rrow"><span class="i">1</span><span>Rated normal</span><span class="val">${ok.toLocaleString()}</span></div>
-    <div class="rrow ${bad ? "hi" : ""}"><span class="i">2</span><span>Rated an attack</span><span class="val">${bad.toLocaleString()}</span></div>
-    <div class="rrow ${alerts.length ? "hi" : ""}"><span class="i">3</span><span>Behaviour alerts</span><span class="val">${alerts.length}</span></div>
-    <div class="rrow"><span class="i">4</span><span>Distinct ports</span><span class="val">${distinctPorts.toLocaleString()}</span></div>`;
-
-  $("alerts").innerHTML = alertRows(alerts);
-  $("talkers").innerHTML = talkerBars(d.talkers || []) || `<div class="empty">No destinations to rank.</div>`;
+  $("devices").innerHTML = deviceList(devices);
+  $("alerts").innerHTML = alertRecords(alerts);
 
   const ordered = [...flows].sort((a, b) => (b.is_threat - a.is_threat) || (b.packets - a.packets));
   const shown = ordered.slice(0, ROW_CAP);
@@ -465,9 +452,10 @@ function render(d) {
       <td><span class="vtag ${f.is_threat ? "bad" : ""}"><i></i>${
         esc(f.attack_type ? f.attack_type : f.is_threat ? "Suspicious" : "Normal")}</span></td>
     </tr>`).join("")}</tbody></table>
-    ${total > shown.length ? `<div class="empty">Showing ${shown.length} of ${total.toLocaleString()}, flagged first then busiest.</div>` : ""}`;
+    ${total > shown.length ? `<p class="caption">Showing ${shown.length} of ${total.toLocaleString()},
+      flagged first then busiest.</p>` : ""}`;
 
-  $("page-sub").textContent = attacked
+  $("msg").textContent = attacked
     ? `An attack was found in ${total.toLocaleString()} conversations.`
     : `No attack found in ${total.toLocaleString()} conversations.`;
 }
@@ -477,17 +465,17 @@ async function call(id, url, opts, msg) {
   try {
     const res = await fetch(url, opts);
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) $("page-sub").textContent = body.detail || res.statusText;
+    if (!res.ok) $("msg").textContent = body.detail || res.statusText;
     else render(body);
   } catch (err) {
-    $("page-sub").textContent = err.message;
+    $("msg").textContent = err.message;
   } finally {
     setBusy(id, false, "");
   }
 }
 
 $("btn-demo").onclick = () => call("btn-demo", "/api/demo", {}, "Replaying a recorded attack…");
-$("btn-scan").onclick = () => call("btn-scan", "/api/scan", {}, "Capturing live packets for 30 seconds…");
+$("btn-scan").onclick = () => call("btn-scan", "/api/scan", {}, "Listening to this network for 30 seconds…");
 $("btn-upload").onclick = () => $("file").click();
 
 $("file").onchange = e => {
@@ -499,16 +487,12 @@ $("file").onchange = e => {
   e.target.value = "";
 };
 
-show("overview");
-
 fetch("/api/health").then(r => r.json()).then(h => {
-  $("mode").innerHTML = h.live_capture
-    ? '<span class="dot on"></span>LIVE'
-    : '<span class="dot"></span>HOSTED';
+  $("mode").innerHTML = h.live_capture ? '<span class="dot on"></span>LIVE' : '<span class="dot"></span>HOSTED';
   if (!h.live_capture) {
     liveOff = true;
     $("btn-scan").disabled = true;
-    $("btn-scan").title = "Live capture needs a real network card, which a cloud server does not have";
+    $("btn-scan").title = "Watching a network needs a real network card, which a cloud server does not have";
   }
   if (!h.demo_available) $("btn-demo").disabled = true;
 }).catch(() => { $("mode").innerHTML = '<span class="dot"></span>OFFLINE'; });

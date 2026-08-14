@@ -257,6 +257,36 @@ It is also the second independent piece of evidence for the cross-flow detector.
 PortScan recall on a held out day is 0.001. The model is close to blind to scans it has
 not trained on, and no per-flow feature set fixes that.
 
+## Seeing the rest of the network
+
+A reasonable next question is whether this can watch the whole WiFi rather than one machine.
+Not in the way people usually mean, and the reason is worth stating because a lot of
+tools imply otherwise.
+
+WPA2 and WPA3 encrypt each device's traffic under a different key. A laptop cannot read
+another device's packets even with the WiFi password and a card in monitor mode. Anything
+that genuinely reads all traffic has to sit where the traffic passes, which means the
+router, a mirrored switch port, or a machine placed inline.
+
+What a laptop can do is find out who is there. Every device announces itself eventually
+through ARP, DHCP and multicast, so `observe_devices` builds an inventory by listening
+rather than probing:
+
+- MAC address, and the hardware vendor resolved from it
+- addresses it uses on the network, and any hostname it advertises
+- how much it sent, when it first appeared, when it was last heard
+- whether it is the router, inferred from it being the only device that ever sources a
+  public address
+- whether its MAC is randomised, which modern phones do for privacy
+
+Listening turned out to matter more than probing. On the network I tested, an ARP scan of
+the whole `/24` found only the router, because the access point has client isolation
+switched on. Passive listening over the same network found devices that isolation hides,
+including an Apple device at `192.168.0.153` that never answered a single request.
+
+New devices are reported against a history that only a live capture writes, so an uploaded
+file can never poison the record of what belongs on your network.
+
 ## Design decisions
 
 **Scoping to four features.** The first live model was handed the 78 feature vector with
@@ -302,7 +332,7 @@ Stated plainly, because they are real.
 python -m pytest tests/ -q
 ```
 
-58 tests covering flow keying, the 120 second expiry, FIN and RST teardown, feature
+77 tests covering flow keying, the 120 second expiry, FIN and RST teardown, feature
 arithmetic, scan, sweep and beacon thresholds including boundary and window splitting cases, and
 upload validation. One of them asserts that a malformed capture returns 400 without
 leaking parser internals, which is a real bug that got fixed rather than a hypothetical.
@@ -325,6 +355,7 @@ src/
   api/static/index.html   dashboard
   model/live_bridge.py    flow table, feature extraction, scoring
   model/behaviour.py      cross-flow rules: port scans, host sweeps, beaconing
+  model/devices.py        passive device discovery and new-device history
   model/train_live.py     trains the binary detector and the type classifier
   model/train.py          trains the 78 feature reference model
   dataset/                CICIDS2017 cleaning and combining

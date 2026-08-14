@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -9,6 +10,7 @@ from scapy.all import rdpcap, sniff
 
 from src.model.live_bridge import FlowTable, classify_flows, group_packets
 from src.model.behaviour import find_beacons, find_scans
+from src.model.devices import find_new_devices, observe_devices
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -25,7 +27,27 @@ app = FastAPI(title="Guardian", description="ML network intrusion detection")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-def _payload(results, source, packets_read, alerts):
+KNOWN_DEVICES = REPO_ROOT / "data" / "known_devices.json"
+
+
+def _load_known():
+    try:
+        return set(json.loads(KNOWN_DEVICES.read_text()))
+    except (OSError, ValueError):
+        return set()
+
+
+def _remember(macs):
+    """Best effort. A read-only host simply never builds a history, which
+    means it reports no device as new rather than reporting all of them."""
+    try:
+        KNOWN_DEVICES.parent.mkdir(parents=True, exist_ok=True)
+        KNOWN_DEVICES.write_text(json.dumps(sorted(_load_known() | set(macs))))
+    except OSError:
+        pass
+
+
+def _payload(results, source, packets_read, alerts, devices=()):
     ordered = sorted(results, key=lambda r: (not r["is_threat"], -r["packets"]))
 
     points = [
@@ -49,6 +71,8 @@ def _payload(results, source, packets_read, alerts):
         "alert_count": len(alerts),
         "points": points,
         "talkers": [{"host": h, "bytes": b} for h, b in talkers],
+        "devices": list(devices),
+        "device_count": len(devices),
     }
 
 
@@ -59,6 +83,7 @@ def _verdicts_from_packets(packets, source):
         source,
         len(packets),
         find_scans(packets) + find_beacons(flows),
+        observe_devices(packets),
     )
 
 
@@ -102,11 +127,19 @@ def scan():
         raise HTTPException(status_code=503, detail=f"Could not capture: {exc}")
 
     flows = table.finish()
+    devices = observe_devices(captured)
+
+    # Only a live capture is trustworthy evidence of who is on this network,
+    # so only a live capture updates the history an upload is compared against.
+    new_devices = find_new_devices(devices, _load_known())
+    _remember(d["mac"] for d in devices)
+
     payload = _payload(
         classify_flows(flows),
         "live",
         table.packets_seen,
-        find_scans(captured) + find_beacons(flows),
+        find_scans(captured) + find_beacons(flows) + new_devices,
+        devices,
     )
     payload["capture_seconds"] = CAPTURE_SECONDS
     return payload
