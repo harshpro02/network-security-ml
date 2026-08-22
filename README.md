@@ -1,5 +1,7 @@
 # Guardian
 
+[![tests](https://github.com/harshpro02/network-security-ml/actions/workflows/tests.yml/badge.svg)](https://github.com/harshpro02/network-security-ml/actions/workflows/tests.yml)
+
 A network intrusion detector that captures live packets, groups them into flows, and
 scores each flow with a random forest trained on CICIDS2017. It ships as a running
 service with a web dashboard, not a notebook.
@@ -347,8 +349,13 @@ Stated plainly, because they are real.
 ## Tests
 
 ```bash
+pip install -r requirements-dev.txt
 python -m pytest tests/ -q
 ```
+
+CI runs the suite on Ubuntu and Windows for every push. Both platforms on purpose: one
+of the bugs these tests cover was a Windows-only file lock that turned a malformed
+upload into a 500 instead of a 400.
 
 86 tests covering flow keying, the 120 second expiry, FIN and RST teardown, feature
 arithmetic, scan, sweep and beacon thresholds including boundary and window splitting cases, and

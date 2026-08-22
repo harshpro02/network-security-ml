@@ -1,0 +1,40 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    # Both platforms on purpose. Packet capture and temp-file handling behave
+    # differently on Windows, and one of the bugs this suite covers was a
+    # Windows-only file lock that returned 500 instead of 400.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+      - name: Check the API imports and serves without a network interface
+        env:
+          ALLOW_LIVE_CAPTURE: "0"
+        run: |
+          python -c "from fastapi.testclient import TestClient; from src.api.main import app; c = TestClient(app); assert c.get('/api/health').json()['status'] == 'ok'; assert c.get('/').status_code == 200; assert c.get('/api/scan').status_code == 503; print('API OK with capture disabled')"
