@@ -11,6 +11,7 @@ and the useful part of running both is seeing where each one is silent.
 """
 import argparse
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -37,6 +38,19 @@ def guardian(pcap):
     }
 
 
+def rules_loaded(eve_path):
+    """How many rules Suricata actually had.
+
+    Zero alerts means nothing if the ruleset never loaded, so this is not
+    optional detail. Suricata records the count in its own log next to eve.json.
+    """
+    log = Path(eve_path).parent / "suricata.log"
+    if not log.exists():
+        return None
+    match = re.search(r"([\d,]+) rules successfully loaded", log.read_text(errors="ignore"))
+    return int(match.group(1).replace(",", "")) if match else None
+
+
 def suricata(log_path):
     """Read Suricata's eve.json. Returns None when it was never run."""
     if not log_path:
@@ -47,16 +61,24 @@ def suricata(log_path):
 
     signatures = Counter()
     total = 0
+    events = Counter()
     for line in path.read_text(errors="ignore").splitlines():
         try:
             event = json.loads(line)
         except ValueError:
             continue
-        if event.get("event_type") != "alert":
+        kind = event.get("event_type")
+        events[kind] += 1
+        if kind != "alert":
             continue
         total += 1
         signatures[event.get("alert", {}).get("signature", "unnamed")] += 1
-    return {"alerts": total, "signatures": signatures}
+    return {
+        "alerts": total,
+        "signatures": signatures,
+        "events": events,
+        "rules": rules_loaded(path),
+    }
 
 
 def main():
@@ -89,14 +111,26 @@ def main():
     print("SURICATA")
     if s is None:
         print("  not run (pass --suricata-log to include it)")
-    elif s["alerts"] == 0:
-        print("  0 alerts")
-        print("  Its default ruleset targets known malicious payloads. A TCP connect")
-        print("  scan carries none, so there is no signature for it to match.")
     else:
-        print(f"  {s['alerts']} alerts")
+        rules = s["rules"]
+        print(f"  rules loaded        {rules:,}" if rules is not None
+              else "  rules loaded        unknown, suricata.log not found")
+        print(f"  events logged       {sum(s['events'].values()):,} "
+              f"({', '.join(f'{k} {v}' for k, v in s['events'].most_common(4))})")
+        print(f"  alerts              {s['alerts']}")
+
         for sig, n in s["signatures"].most_common(10):
             print(f"    {n:>5}  {sig}")
+
+        if not rules:
+            print()
+            print("  WARNING: no ruleset was loaded, so zero alerts says nothing about")
+            print("  Suricata. This comparison is not valid until suricata-update runs.")
+        elif s["alerts"] == 0:
+            print()
+            print(f"  {rules:,} signatures were loaded and none matched. They look for known")
+            print("  malicious payloads, and a TCP connect scan carries no payload at all.")
+            print("  Suricata parsed the traffic fine, it just has nothing to match on.")
 
     print()
     print("Different tools, different evidence. Suricata inspects payloads for known")

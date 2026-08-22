@@ -62,15 +62,19 @@ jobs:
           suricata --build-info | head -3
 
       - name: Fetch the Emerging Threats ruleset
-        run: sudo suricata-update --no-test || echo "ruleset fetch failed, continuing with whatever is present"
+        # Not optional. Suricata with no rules finds nothing by definition, so a
+        # silent failure here would turn the comparison into a meaningless zero.
+        run: |
+          sudo suricata-update --no-test
+          sudo test -s /var/lib/suricata/rules/suricata.rules
+          echo "rules file: $(sudo wc -l < /var/lib/suricata/rules/suricata.rules) lines"
 
       - name: Run Suricata over the demo capture
         run: |
           mkdir -p suricata-out
-          sudo suricata -r demo/demo_capture.pcap -l suricata-out -k none || true
+          sudo suricata -r demo/demo_capture.pcap -l suricata-out -k none             -S /var/lib/suricata/rules/suricata.rules || true
           sudo chmod -R a+r suricata-out
-          echo "--- files produced ---"
-          ls -la suricata-out
+          grep -o '[0-9,]* rules successfully loaded' suricata-out/suricata.log ||             { echo "::error::Suricata loaded no rules, the comparison would be meaningless"; exit 1; }
 
       - name: Compare
         run: |
