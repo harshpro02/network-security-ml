@@ -89,6 +89,13 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # Also emit the headline as an annotation. Workflow logs need auth to
+          # read, annotations do not, so the result stays checkable by anyone.
+          rules=$(grep -o '[0-9,]* rules successfully loaded' suricata-out/suricata.log | head -1)
+          alerts=$(grep -c '"event_type":"alert"' suricata-out/eve.json || echo 0)
+          guardian=$(grep -c 'behaviour layer' comparison.txt || echo 0)
+          echo "::notice title=Detector comparison::Suricata ${rules:-unknown}, ${alerts} alerts. Guardian ${guardian} behaviour alert(s) on the same capture."
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
