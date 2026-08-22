@@ -14,8 +14,11 @@ when idle, so the first request after a quiet period takes about a minute to wak
 roughly one request in fifteen is refused while it is starting. Reload and it will be there. Live capture is
 disabled there for the reason described below, and the page says so.
 
-<!-- TODO: add demo.gif showing the scan alert firing -->
-![Guardian dashboard](docs/demo.gif)
+![Guardian detecting a port scan](docs/demo.gif)
+
+Above: a recorded 1,024 port scan replayed through the detector. The rising line is the
+scan working through the ports in order. The per-flow model rated 2 of those 1,029
+conversations an attack; the behaviour layer caught the scan itself.
 
 ## Quickstart
 
