@@ -9,8 +9,9 @@ at a real attack.
 
 **Live demo:** https://guardian-dty5.onrender.com
 
-Press `run demo` to replay a recorded port scan. Free tier, so the first request
-after a quiet period takes about a minute while the instance wakes up. Live capture is
+Press `run demo` to replay a recorded port scan. It runs on a free instance that sleeps
+when idle, so the first request after a quiet period takes about a minute to wake, and
+roughly one request in fifteen is refused while it is starting. Reload and it will be there. Live capture is
 disabled there for the reason described below, and the page says so.
 
 <!-- TODO: add demo.gif showing the scan alert firing -->
@@ -110,7 +111,7 @@ it with this project's own code, and scores it. First run:
 
 **0 of 2,050 scan flows detected.**
 
-Three separate problems were hiding behind that.
+Four separate problems were hiding behind that.
 
 ### 1. Frame bytes instead of payload bytes
 
@@ -147,9 +148,26 @@ never closed anything, so a long conversation grew into a single enormous flow w
 duration and packet count resembled nothing in the training set. `FlowTable` now follows
 the same rules.
 
+### 4. Half of every conversation was missing
+
+Flows were keyed on the directional 5-tuple, so `A to B` and `B to A` became two separate
+flows. CICFlowMeter treats a conversation as one bidirectional flow and then reports the
+directions separately, which matters because the four live features are not all measured
+the same way. `Total Fwd Packets` and `Total Length of Fwd Packets` count the opening
+direction only, while `Average Packet Size` spans both.
+
+The dataset says so plainly. Benign flows have a median of 2 forward packets carrying 66
+bytes, which is 33 bytes per forward packet, against a median Average Packet Size of
+74.25. That figure can only come from counting both directions.
+
+`FlowTable` now keys on the conversation and remembers which way it was opened, so the
+forward columns count the opening direction and the average covers everything. Conversation
+counts halved, because they had been double counted all along, and false positives on real
+benign captures went down again.
+
 ### The part that was not a bug
 
-After all three fixes it still only caught 3 of 2,050, and no amount of tuning was going
+After all four fixes it still only caught 2 of 1,029, and no amount of tuning was going
 to change that. A single SYN to a closed port is four numbers: near zero duration, one
 packet, zero bytes, zero average. A single benign packet is the same four numbers.
 Nothing in a per-flow feature vector separates them.
@@ -320,9 +338,6 @@ Stated plainly, because they are real.
 - **More features are not the answer, which I checked rather than assumed.** Around 28
   CICIDS2017 columns are derivable from raw packets. Using them raises random split
   accuracy to 0.9984 and lowers leave-one-day-out recall to 0.026.
-- **Flows are directional.** `A to B` and `B to A` are scored separately. Production
-  tooling treats a conversation as one bidirectional flow, which would also unlock the
-  backward direction features.
 - **Small classes stay unsolved.** Heartbleed has 11 rows and SQL Injection has 21. No
   feature set fixes a sample size like that.
 
@@ -332,7 +347,7 @@ Stated plainly, because they are real.
 python -m pytest tests/ -q
 ```
 
-77 tests covering flow keying, the 120 second expiry, FIN and RST teardown, feature
+86 tests covering flow keying, the 120 second expiry, FIN and RST teardown, feature
 arithmetic, scan, sweep and beacon thresholds including boundary and window splitting cases, and
 upload validation. One of them asserts that a malformed capture returns 400 without
 leaking parser internals, which is a real bug that got fixed rather than a hypothetical.

@@ -89,9 +89,9 @@ class TestAnalyse:
         for t, port, pkts, bad in body["points"]:
             assert t >= 0 and 0 <= port <= 65535 and pkts >= 1 and bad in (0, 1)
 
-    def test_reply_direction_is_not_charted_twice(self, tmp_path):
-        # One conversation, both directions. The chart should show the service
-        # side once, not the same exchange at 443 and again at 51000.
+    def test_both_directions_are_one_conversation(self, tmp_path):
+        # One exchange, both directions. It is a single flow keyed on the
+        # direction it was opened in, charted once, at the service port.
         packets = []
         for i in range(4):
             out = IP(src="10.0.0.5", dst="10.0.0.9") / TCP(sport=51000, dport=443)
@@ -103,9 +103,14 @@ class TestAnalyse:
         wrpcap(str(path), packets)
 
         body = upload(path.read_bytes()).json()
-        assert body["flow_count"] == 2
+        assert body["flow_count"] == 1
         assert len(body["points"]) == 1
         assert body["points"][0][1] == 443
+        flow = body["flows"][0]
+        assert (flow["source"], flow["src_port"]) == ("10.0.0.5", 51000)
+        assert (flow["destination"], flow["dst_port"]) == ("10.0.0.9", 443)
+        # Fwd columns count the opening direction only, four of the eight packets.
+        assert flow["packets"] == 4
 
     def test_first_flow_starts_at_zero(self, pcap_bytes):
         starts = [f["started_at"] for f in upload(pcap_bytes).json()["flows"]]

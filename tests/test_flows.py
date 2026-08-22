@@ -110,3 +110,49 @@ class TestFeatures:
         _, _, total, avg = flow_to_features([packet(payload=0, flags="S")])
         assert total == 0
         assert avg == 0
+
+
+def reply(src="10.0.0.2", dst="10.0.0.1", sport=80, dport=1234, t=0.0, payload=100, flags="A"):
+    return packet(src=src, dst=dst, sport=sport, dport=dport, t=t, payload=payload, flags=flags)
+
+
+class TestBidirectional:
+    def test_both_directions_land_in_one_flow(self):
+        flows = flows_from([packet(t=0), reply(t=1), packet(t=2)])
+        assert len(flows) == 1
+        assert len(flows[0][1]) == 3
+
+    def test_the_opener_defines_the_flow_direction(self):
+        key, _ = flows_from([packet(t=0), reply(t=1)])[0]
+        assert key[0] == "10.0.0.1" and key[2] == 1234
+        assert key[1] == "10.0.0.2" and key[3] == 80
+
+    def test_a_reply_first_capture_is_keyed_on_the_reply(self):
+        key, _ = flows_from([reply(t=0), packet(t=1)])[0]
+        assert key[0] == "10.0.0.2" and key[2] == 80
+
+    def test_fwd_columns_count_only_the_opening_direction(self):
+        key, packets = flows_from(
+            [packet(t=0, payload=100), reply(t=1, payload=500), packet(t=2, payload=100)])[0]
+        duration, count, total, avg = flow_to_features(packets, key)
+        assert count == 2
+        assert total == 200
+
+    def test_average_packet_size_spans_both_directions(self):
+        key, packets = flows_from([packet(t=0, payload=100), reply(t=1, payload=200)])[0]
+        _, _, total, avg = flow_to_features(packets, key)
+        assert total == 100
+        assert avg == 150
+
+    def test_duration_spans_the_whole_conversation(self):
+        key, packets = flows_from([packet(t=0), reply(t=9)])[0]
+        duration, _, _, _ = flow_to_features(packets, key)
+        assert duration == pytest.approx(9)
+
+    def test_without_a_key_every_packet_counts_as_forward(self):
+        _, count, _, _ = flow_to_features([packet(t=0), reply(t=1)])
+        assert count == 2
+
+    def test_separate_conversations_still_separate(self):
+        flows = flows_from([packet(sport=1111, t=0), packet(sport=2222, t=0)])
+        assert len(flows) == 2

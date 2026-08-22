@@ -38,6 +38,28 @@ def get_flow_key(packet):
     return (src_ip, dst_ip, src_port, dst_port, protocol)
 
 
+def conversation_key(packet):
+    """Both directions of one exchange map to the same key.
+
+    CICFlowMeter treats a conversation as a single bidirectional flow and then
+    reports the two directions separately. Keying on the directional 5-tuple
+    split every exchange in half, which double counted conversations and made
+    Average Packet Size wrong, since that feature spans both directions.
+    """
+    key = get_flow_key(packet)
+    if key is None:
+        return None
+    src_ip, dst_ip, src_port, dst_port, protocol = key
+    a, b = (src_ip, src_port), (dst_ip, dst_port)
+    return (a, b, protocol) if a <= b else (b, a, protocol)
+
+
+def is_forward(packet, key):
+    """True when the packet travels the way the conversation was opened."""
+    k = get_flow_key(packet)
+    return bool(k) and k[0] == key[0] and k[2] == key[2]
+
+
 class FlowTable:
     def __init__(self, flow_timeout=FLOW_TIMEOUT):
         self.flow_timeout = flow_timeout
@@ -47,25 +69,26 @@ class FlowTable:
 
     def add(self, packet):
         self.packets_seen += 1
-        key = get_flow_key(packet)
-        if key is None:
+        pair = conversation_key(packet)
+        if pair is None:
             return
 
-        current = self._open.get(key)
-        if current is not None and float(packet.time) - float(current[0].time) > self.flow_timeout:
-            self._closed.append((key, current))
+        current = self._open.get(pair)
+        if current is not None and float(packet.time) - float(current[1][0].time) > self.flow_timeout:
+            self._closed.append(current)
             current = None
 
         if current is None:
-            current = self._open[key] = []
-        current.append(packet)
+            # Whoever sent the first packet defines the forward direction.
+            current = self._open[pair] = (get_flow_key(packet), [])
+        current[1].append(packet)
 
         if TCP in packet and int(packet[TCP].flags) & 0x05:
-            self._closed.append((key, current))
-            del self._open[key]
+            self._closed.append(current)
+            del self._open[pair]
 
     def finish(self):
-        finished = self._closed + list(self._open.items())
+        finished = self._closed + list(self._open.values())
         self._closed = []
         self._open = {}
         return finished
@@ -81,16 +104,28 @@ def payload_size(packet):
     return len(packet)
 
 
-def flow_to_features(packets):
+def flow_to_features(packets, key=None):
+    """Duration spans the whole conversation and Average Packet Size covers
+    both directions, but the two Fwd columns count only the forward half,
+    which is how CICIDS2017 defines them.
+
+    With no key every packet is treated as forward, which is what a
+    single-direction caller wants.
+    """
     times = [float(p.time) for p in packets]
-    sizes = [payload_size(p) for p in packets]
-
     duration = max(times) - min(times)
-    packet_count = len(packets)
-    total_bytes = sum(sizes)
-    avg_size = total_bytes / packet_count
 
-    return duration, packet_count, total_bytes, avg_size
+    sizes = [payload_size(p) for p in packets]
+    avg_size = sum(sizes) / len(packets)
+
+    if key is None:
+        forward = sizes
+    else:
+        forward = [payload_size(p) for p in packets if is_forward(p, key)]
+        if not forward:
+            forward = sizes
+
+    return duration, len(forward), sum(forward), avg_size
 
 
 def make_feature_vector(duration, packet_count, total_bytes, avg_size):
@@ -112,7 +147,7 @@ def classify_flows(flow_list, min_packets=1):
     if not kept:
         return []
 
-    features = [flow_to_features(packets) for _, packets in kept]
+    features = [flow_to_features(packets, key) for key, packets in kept]
     frame = pd.DataFrame(
         [(duration * 1_000_000, count, total, avg) for duration, count, total, avg in features],
         columns=live_features,
