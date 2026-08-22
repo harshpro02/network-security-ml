@@ -353,6 +353,13 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -q
 ```
 
+Every measured claim below can be regenerated rather than taken on trust:
+
+```bash
+python scripts/reproduce.py          # needs only what is in this repository
+python scripts/reproduce.py --full   # also retrains and re-evaluates, needs the dataset
+```
+
 CI runs the suite on Ubuntu and Windows for every push. Both platforms on purpose: one
 of the bugs these tests cover was a Windows-only file lock that turned a malformed
 upload into a 500 instead of a 400.

@@ -73,7 +73,17 @@ jobs:
           ls -la suricata-out
 
       - name: Compare
-        run: python scripts/compare_detectors.py --pcap demo/demo_capture.pcap --suricata-log suricata-out/eve.json
+        run: |
+          python scripts/compare_detectors.py             --pcap demo/demo_capture.pcap             --suricata-log suricata-out/eve.json | tee comparison.txt
+          {
+            echo '## Guardian vs Suricata'
+            echo
+            echo 'Both detectors over `demo/demo_capture.pcap`, a real 1,024 port scan.'
+            echo
+            echo '```'
+            cat comparison.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: always()
