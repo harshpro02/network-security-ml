@@ -280,6 +280,43 @@ It is also the second independent piece of evidence for the cross-flow detector.
 PortScan recall on a held out day is 0.001. The model is close to blind to scans it has
 not trained on, and no per-flow feature set fixes that.
 
+## Measured against Suricata
+
+Claiming a hand-rolled detector is useful means little without a reference point, so
+the CI pipeline runs Suricata over the exact same capture on every push.
+
+Suricata 7.0.3, with **52,496** Emerging Threats signatures loaded, on `demo_capture.pcap`:
+
+| | Suricata | Guardian |
+|---|---|---|
+| packets parsed | 2,072 | 2,072 |
+| rules or features | 52,496 signatures | 4 flow features, 3 counting rules |
+| alerts | **0** | **1** (port scan, 1,562 ports in 60s) |
+| per-flow verdicts | n/a | 2 of 1,029 rated an attack |
+
+Suricata parsed everything correctly. Its `eve.json` came to 586 KB of flow records, and
+`fast.log` was empty rather than missing. It simply had nothing to match on.
+
+**This is not a win over Suricata, and reading it that way would be a mistake.** Suricata
+is a signature engine. Its 52,496 rules describe known malicious payloads: exploit
+strings, malware beacons, command and control patterns. A TCP connect scan carries no
+payload at all. There is no byte sequence in it to sign, so no signature can exist for
+it. Point the same ruleset at a real exploit attempt and it would find things Guardian
+cannot see at all, because Guardian never looks inside a packet.
+
+The useful part of running both is learning where each is blind. Signature engines miss
+what has no signature. Statistical per-flow models miss what is only visible across
+flows. Production deployments run both for exactly this reason, which is what pushed me
+to add the behaviour layer rather than keep tuning the model.
+
+The comparison is reproduced on every push and the rule count is printed beside the
+alert count, because zero alerts from a ruleset that failed to load would look identical
+to zero alerts from one that loaded fine. The workflow fails rather than report that.
+
+```bash
+python scripts/compare_detectors.py --pcap demo/demo_capture.pcap
+```
+
 ## Seeing the rest of the network
 
 A reasonable next question is whether this can watch the whole WiFi rather than one machine.
