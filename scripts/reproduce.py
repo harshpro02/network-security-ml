@@ -8,8 +8,8 @@ rather than take them on trust.
     python scripts/reproduce.py --full       also retrain and re-evaluate
 
 The dataset is not in this repository. --full needs CICIDS2017 cleaned into
-data/processed/clean_for_training.csv, which src/dataset/combine.py and
-src/dataset/clean.py produce from the raw CSVs.
+data/processed/clean_for_training.csv, which scripts/build_dataset.py produces
+from the raw CSVs.
 """
 import argparse
 import subprocess
@@ -124,8 +124,7 @@ def main():
 
     if not TRAINING_CSV.exists():
         sys.exit(f"\n--full needs {TRAINING_CSV.relative_to(REPO_ROOT)}, which is not in "
-                 "this repository.\nBuild it with src/dataset/combine.py then "
-                 "src/dataset/clean.py.")
+                 "this repository. Build it with scripts/build_dataset.py.")
 
     held_out_metrics()
 

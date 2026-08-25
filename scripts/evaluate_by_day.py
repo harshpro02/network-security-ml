@@ -67,8 +67,7 @@ for label, feats in (("4 features (deployed)", CURRENT),
     for day in folds:
         train = data[data.Day != day]
         test = data[data.Day == day]
-        if train.sample(n=min(400000, len(train)), random_state=42) is not None:
-            train = train.sample(n=min(400000, len(train)), random_state=42)
+        train = train.sample(n=min(400000, len(train)), random_state=42)
 
         m = build().fit(train[feats], train['Binary'])
         pred = m.predict(test[feats])

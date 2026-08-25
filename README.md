@@ -114,9 +114,11 @@ project in this space stops at, so I wanted to know whether it held up.
 `scripts/record_demo.py` runs a 1,024 port TCP connect scan against loopback, captures
 it with this project's own code, and scores it. First run:
 
-**0 of 2,050 scan flows detected.**
+**0 of 2,050 flows detected.**
 
-Four separate problems were hiding behind that.
+Four separate problems were hiding behind that. Note the flow count drops to 1,029 partway
+through what follows, because the fourth problem was that every conversation was being
+counted twice. Numbers before that fix are per direction, after it per conversation.
 
 ### 1. Frame bytes instead of payload bytes
 
@@ -364,8 +366,34 @@ Depth capped and compressed, both models total 6.9 MB and live in the repository
 clone runs without a separate download.
 
 **Batched inference.** Scoring called `predict()` once per flow at 45 ms each, which is
-92 seconds for the 2,050 flows a port scan produces. One frame and one call does the
-same work in 0.09 seconds.
+92 seconds for the flows a port scan produces. One frame and one call does the same work
+in 0.09 seconds.
+
+## What the behaviour layer cannot do
+
+The section above is unbalanced if it stops here, because it scrutinises the model and
+lets the rules that replaced it off without the same treatment. They have a plainer
+weakness: **thresholds are trivially evadable by anyone who knows the threshold.**
+
+- **Slow down and it disappears.** The rule fires at 20 distinct ports per minute. Scan
+  19 ports a minute and nothing triggers, and 1,024 ports still finish in under an hour.
+  `nmap -T1` is slower than that by default.
+- **Spread the source and it disappears.** Counting is per source address, so the same
+  sweep split across a handful of hosts stays under the bar everywhere.
+- **Beaconing only has to add noise.** The check wants jitter under 15%. Real malware
+  families randomise their check-in interval specifically to defeat this, and it works.
+- **Nothing is adaptive.** The thresholds are constants I chose after measuring five
+  captures on one home network. A busy office subnet, a CI runner, or a machine running
+  peer-to-peer software could all cross them legitimately.
+
+So the two layers fail in opposite directions and neither covers the other. The model
+misses attacks whose evidence spans flows. The rules miss attacks by anyone who reads
+this file. What the rules genuinely buy is that they detect a class of attack the model
+provably cannot, and they are transparent enough that their failure modes can be written
+down honestly, which is more than the 0.068 recall figure can say for itself.
+
+Doing better means learning normal behaviour per network rather than hardcoding a
+constant, and that is a substantially harder problem than anything here.
 
 ## Known limitations
 
@@ -375,13 +403,15 @@ Stated plainly, because they are real.
   recall is 0.068. Measured above. This is the honest ceiling and the number I would
   lead with if someone asked what it can really do.
 - **Test set precision does not survive contact with live traffic.** PortScan scores
-  0.990 on held out rows, 0.001 on a held out day, and caught 3 of 2,050 flows on a scan
-  this code captured. Three different measurements, one conclusion.
+  0.990 on held out rows, 0.001 on a held out day, and caught 2 of 1,029 conversations on
+  a scan this code captured. Three different measurements, one conclusion.
 - **More features are not the answer, which I checked rather than assumed.** Around 28
   CICIDS2017 columns are derivable from raw packets. Using them raises random split
   accuracy to 0.9984 and lowers leave-one-day-out recall to 0.026.
 - **Small classes stay unsolved.** Heartbleed has 11 rows and SQL Injection has 21. No
   feature set fixes a sample size like that.
+- **The behaviour thresholds are evadable and not adaptive.** Detailed above, in the
+  same detail as the model's problems.
 
 ## Tests
 
@@ -420,18 +450,23 @@ watching. `/api/scan` returns a clear 503 rather than a permission error.
 
 ```
 src/
-  api/main.py             FastAPI app, three endpoints, upload validation
-  api/static/index.html   dashboard
-  model/live_bridge.py    flow table, feature extraction, scoring
-  model/behaviour.py      cross-flow rules: port scans, host sweeps, beaconing
-  model/devices.py        passive device discovery and new-device history
-  model/train_live.py     trains the binary detector and the type classifier
-  model/train.py          trains the 78 feature reference model
-  dataset/                CICIDS2017 cleaning and combining
-  packet_capture/         sniffer, PCAP reader, feature extractor
-scripts/record_demo.py    records a real port scan for the demo
-tests/                    pytest suite
-models/                   the two live models, 6.9 MB, committed
+  api/main.py               FastAPI app, four endpoints, upload validation
+  api/static/index.html     dashboard
+  api/static/charts.js      inline SVG charts, no dependencies
+  model/live_bridge.py      flow table, feature extraction, scoring
+  model/behaviour.py        cross-flow rules: port scans, host sweeps, beaconing
+  model/devices.py          passive device discovery and new-device history
+  model/train_live.py       trains the binary detector and the type classifier
+  model/train.py            trains the 78 feature reference model
+scripts/
+  build_dataset.py          raw CICIDS2017 CSVs to the training file
+  capture.py                record traffic from this machine to a PCAP
+  record_demo.py            record a real port scan for the demo
+  evaluate_by_day.py        leave-one-day-out evaluation
+  compare_detectors.py      Guardian beside Suricata on the same capture
+  reproduce.py              regenerate every measured claim here
+tests/                      pytest suite, 86 tests
+models/                     the two live models, 6.9 MB, committed
 ```
 
 ## Data
