@@ -359,7 +359,7 @@ $("export").onclick = () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
-fetch("/api/health", { signal: AbortSignal.timeout(15000) })
+const healthReady = fetch("/api/health", { signal: AbortSignal.timeout(15000) })
   .then(async (response) => {
     if (!response.ok) throw new Error("Host unavailable");
     return response.json();

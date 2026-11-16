@@ -101,16 +101,20 @@ function updateGuardianStory() {
     }
   }
 }
-$("story-next").onclick = () => {
+$("story-next").onclick = async () => {
   if (storyLoading) return;
   if (!storyData) {
-    if ($("btn-demo").disabled) {
-      $("story-message").textContent =
-        "The detector is starting. Try again in a moment.";
-      return;
-    }
     storyLoading = true;
     $("story-next").disabled = true;
+    $("story-message").textContent = "Connecting to the detector…";
+    await healthReady;
+    if ($("btn-demo").disabled) {
+      storyLoading = false;
+      $("story-next").disabled = false;
+      $("story-message").textContent =
+        "The recording is not available on this host right now. Please try again shortly.";
+      return;
+    }
     $("story-message").textContent =
       "Reading and scoring the bundled recording…";
     $("btn-demo").click();
