@@ -11,12 +11,12 @@ at a real attack.
 
 **Live demo:** https://guardian-dty5.onrender.com
 
-Press `run demo` to replay a recorded port scan. It runs on a free instance that sleeps
+Choose **Watch the recorded scan** to explore a real recording in three plain-language steps. It runs on a free instance that sleeps
 when idle, so the first request after a quiet period takes about a minute to wake, and
 roughly one request in fifteen is refused while it is starting. Reload and it will be there. Live capture is
 disabled there for the reason described below, and the page says so.
 
-![Guardian detecting a port scan](docs/demo.gif)
+![Guardian explained through an interactive recorded scan](docs/simple-view.png)
 
 Above: a recorded 1,024 port scan replayed through the detector. The rising line is the
 scan working through the ports in order. The per-flow model rated 2 of those 1,029
@@ -32,9 +32,22 @@ pip install -r requirements.txt
 uvicorn src.api.main:app
 ```
 
-Open http://127.0.0.1:8000. Press `run demo` to replay a recorded port scan, or
-`upload capture` to score your own PCAP. Live capture needs
+Open http://127.0.0.1:8000. Start with **Watch the recorded scan**, or choose
+**Open full dashboard** to upload and inspect your own PCAP. Live capture needs
 [Npcap](https://npcap.com/) and, on most systems, administrator rights.
+
+## Interactive dashboard
+
+The default screen explains Guardian without assuming networking knowledge. Follow one recorded conversation, reveal the many-door scan pattern, then compare individual connection flags with wider-pattern alerts. A glossary explains connections, ports and scans. The full dashboard remains one click away, with a Simple view button to return.
+
+The dashboard separates flow-model flags from behavioural alerts. Run the bundled recording, upload or drop a PCAP (up to 10 MB), then explore:
+
+- A play/pause visualization and scrubber with fixed time/port scales. Detection totals always describe the complete capture, not partial replay positions.
+- Search, protocol/verdict filters and sorting for the returned flow subset (at most 200). Charts include every scored flow.
+- A connection inspector exposing the four actual model inputs, with no invented confidence scores or feature attribution.
+- Behaviour-alert links to matching returned connections, passive device observations, payload destinations and JSON analysis export.
+
+Replay, upload and completed local capture are labelled separately. Hosted builds disable local capture. Errors retain the previous analysis and explain it; empty captures are not presented as proof of safety. The raw-packet rules count directional destination ports, while the chart and summary count destination ports of scored bidirectional conversations; those counts can differ.
 
 ## What it does
 

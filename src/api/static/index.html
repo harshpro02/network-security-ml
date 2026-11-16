@@ -1,501 +1,532 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guardian: network intrusion detection</title>
-<style>
-  :root {
-    color-scheme: dark;
-    --bg:     #000000;
-    --raised: #0e0e0e;
-    --hover:  #141414;
-    --ink:    #ffffff;
-    --ink-2:  #9b9b9b;
-    --dim:    #4a4a4a;
-    --muted:  #666666;
-    --line:   #1c1c1c;
-    --line-2: #2b2b2b;
-    --grid:   #171717;
-    --axis:   #2b2b2b;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
-    --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 14px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
-  }
-  .mono { font-family: var(--mono); }
-  ::-webkit-scrollbar { width: 9px; height: 9px; }
-  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; }
-
-  /* top bar */
-  header {
-    position: sticky; top: 0; z-index: 20; background: var(--bg);
-    border-bottom: 1px solid var(--line);
-  }
-  .row1 { display: flex; align-items: center; gap: 26px; padding: 15px 30px 0; flex-wrap: wrap; }
-  .brand { font-size: 14px; font-weight: 700; letter-spacing: 4px; }
-  .row1 .grow { flex: 1; }
-  .state { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono);
-           font-size: 11px; letter-spacing: 1.2px; color: var(--muted); }
-  .state .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
-  .state .dot.on { background: var(--ink); box-shadow: 0 0 0 3px rgba(255,255,255,.12); }
-
-  .tabs { display: flex; gap: 2px; padding: 12px 30px 0; overflow-x: auto; }
-  .tab {
-    appearance: none; background: none; border: none; font: inherit; cursor: pointer;
-    color: var(--muted); font-size: 13px; padding: 9px 14px 13px; white-space: nowrap;
-    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .13s;
-  }
-  .tab:hover { color: var(--ink-2); }
-  .tab.on { color: var(--ink); border-bottom-color: var(--ink); font-weight: 560; }
-  .tab .num { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 7px; }
-  .tab.on .num { color: var(--ink-2); }
-
-  /* actions */
-  .actionbar { display: flex; align-items: center; gap: 9px; padding: 16px 30px;
-               border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-  button {
-    display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 12.5px;
-    font-weight: 550; padding: 8px 15px; border-radius: 6px; cursor: pointer;
-    border: 1px solid var(--line-2); background: transparent; color: var(--ink-2);
-    transition: color .13s, border-color .13s;
-  }
-  button:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); }
-  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  button:disabled { opacity: .28; cursor: not-allowed; }
-  button.primary { background: var(--ink); border-color: var(--ink); color: #000; font-weight: 620; }
-  button.primary:hover:not(:disabled) { background: #dcdcdc; border-color: #dcdcdc; }
-  .spin { width: 12px; height: 12px; border-radius: 50%; display: none; flex: none;
-          border: 2px solid currentColor; border-right-color: transparent; animation: spin .6s linear infinite; }
-  button.busy .spin { display: block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .actionbar .msg { font-size: 12.5px; color: var(--muted); margin-left: 6px; }
-
-  /* sections, no cards */
-  main { padding-bottom: 80px; }
-  .view { display: none; } .view.on { display: block; }
-  section { padding: 34px 30px; border-bottom: 1px solid var(--line); }
-  .shead { font-size: 10px; letter-spacing: 1.7px; text-transform: uppercase;
-           color: var(--muted); margin-bottom: 22px; display: flex; justify-content: space-between; gap: 14px; }
-
-  /* hero */
-  .hero { display: grid; grid-template-columns: minmax(210px, 300px) 1fr; gap: 46px; align-items: start; }
-  @media (max-width: 780px) { .hero { grid-template-columns: 1fr; gap: 22px; } }
-  .figure { font-size: clamp(56px, 10vw, 104px); font-weight: 640; letter-spacing: -5px; line-height: .88; }
-  .figure-sub { font-size: 10.5px; letter-spacing: 1.7px; text-transform: uppercase; color: var(--muted); margin-top: 14px; }
-  .verdict-t { margin: 0 0 12px; font-size: clamp(21px, 3vw, 29px); font-weight: 620; letter-spacing: -.9px; line-height: 1.18; }
-  .verdict-p { margin: 0; font-size: 15px; line-height: 1.68; color: var(--ink-2); max-width: 66ch; }
-  .verdict-p b { color: var(--ink); font-weight: 620; }
-
-  .facts { display: flex; flex-wrap: wrap; gap: 0; margin-top: 30px; border-top: 1px solid var(--line); }
-  .fact { padding: 16px 30px 4px 0; margin-right: 30px; }
-  .fact .v { font-size: 21px; font-weight: 640; letter-spacing: -.7px; }
-  .fact .k { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-
-  /* bars strip */
-  .strip { display: flex; height: 3px; gap: 2px; margin-top: 26px; background: var(--line); }
-  .strip span { display: block; height: 100%; }
-  .strip .ok { background: var(--dim); } .strip .bad { background: var(--ink); }
-
-  /* charts */
-  .chartbox svg { display: block; width: 100%; overflow: visible; }
-  .caption { font-size: 13px; color: var(--muted); line-height: 1.65; margin: 18px 0 0; max-width: 84ch; }
-  .caption b { color: var(--ink-2); font-weight: 600; }
-  .legend { display: flex; gap: 20px; font-size: 11.5px; color: var(--muted); margin-top: 14px; }
-  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 7px; }
-  .legend .k-ok { background: var(--dim); } .legend .k-bad { background: var(--ink); }
-
-  /* alerts as records */
-  .rec { padding: 24px 0; border-top: 1px solid var(--line); display: grid;
-         grid-template-columns: 132px 1fr; gap: 26px; }
-  .rec:first-child { border-top: none; padding-top: 0; }
-  @media (max-width: 700px) { .rec { grid-template-columns: 1fr; gap: 10px; } }
-  .rec .kind { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--ink);
-               padding-top: 4px; }
-  .rec .kind::before { content: ""; display: block; width: 26px; height: 2px; background: var(--ink); margin-bottom: 10px; }
-  .rec h3 { margin: 0 0 9px; font-size: 18px; font-weight: 620; letter-spacing: -.4px; line-height: 1.35; }
-  .rec p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.7; max-width: 76ch; }
-  .rec p b { color: var(--ink); font-weight: 620; }
-  .empty { font-size: 13.5px; color: var(--muted); line-height: 1.7; max-width: 76ch; }
-
-  /* tables */
-  .tablewrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
-  th { text-align: left; font-size: 9.5px; font-weight: 620; letter-spacing: 1.3px; text-transform: uppercase;
-       color: var(--muted); padding: 0 20px 12px 0; border-bottom: 1px solid var(--line-2); }
-  td { padding: 11px 20px 11px 0; border-bottom: 1px solid var(--line); color: var(--ink-2); }
-  tbody tr:hover td { color: var(--ink); }
-  tbody tr.hi td { color: var(--ink); }
-  .n { text-align: right; font-variant-numeric: tabular-nums; }
-  .vtag { display: inline-flex; align-items: center; gap: 7px; }
-  .vtag i { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex: none; }
-  .vtag.bad { color: var(--ink); font-weight: 620; }
-  .vtag.bad i { background: var(--ink); }
-  .chip { display: inline-block; font-size: 9.5px; letter-spacing: .9px; text-transform: uppercase;
-          border: 1px solid var(--line-2); border-radius: 3px; padding: 1px 6px; color: var(--muted); margin-left: 8px; }
-  .chip.solid { background: var(--ink); border-color: var(--ink); color: #000; font-weight: 660; }
-
-  /* device list */
-  .dev { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center;
-         padding: 18px 0; border-bottom: 1px solid var(--line); }
-  .dev:last-child { border-bottom: none; }
-  .dev .name { font-size: 15.5px; font-weight: 600; letter-spacing: -.2px; }
-  .dev .meta { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
-  .dev .right { text-align: right; }
-  .dev .amt { font-size: 15px; font-weight: 620; font-variant-numeric: tabular-nums; }
-  .dev .amtk { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-  .bars { max-width: 720px; }
-  .brow { display: grid; grid-template-columns: 150px 1fr 74px; gap: 14px; align-items: center; padding: 8px 0; }
-  .bname { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
-  .btrack { height: 6px; background: var(--line); overflow: hidden; }
-  .bfill { height: 100%; background: var(--ink); }
-  .bval { font-size: 12px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
-
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
-  @media (max-width: 900px) { .steps { grid-template-columns: 1fr; gap: 28px; } }
-  .steps .num { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
-  .steps h3 { margin: 0 0 10px; font-size: 17px; font-weight: 620; letter-spacing: -.4px; }
-  .steps p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.7; }
-  .prose p { font-size: 14px; color: var(--ink-2); line-height: 1.75; max-width: 78ch; }
-  .prose b { color: var(--ink); font-weight: 620; }
-</style>
-</head>
-<body>
-
-<header>
-  <div class="row1">
-    <div class="brand">GUARDIAN</div>
-    <div class="grow"></div>
-    <div class="state" id="mode"><span class="dot"></span>CONNECTING</div>
-  </div>
-  <div class="tabs" id="tabs">
-    <button class="tab on" data-view="overview">Overview</button>
-    <button class="tab" data-view="devices">Devices<span class="num" id="n-dev"></span></button>
-    <button class="tab" data-view="behaviour">Behaviour<span class="num" id="n-alert"></span></button>
-    <button class="tab" data-view="connections">Connections<span class="num" id="n-flow"></span></button>
-    <button class="tab" data-view="how">How it works</button>
-  </div>
-</header>
-
-<div class="actionbar">
-  <button class="primary" id="btn-demo"><span class="spin"></span>Run demo</button>
-  <button id="btn-scan"><span class="spin"></span>Watch this network</button>
-  <button id="btn-upload"><span class="spin"></span>Upload capture</button>
-  <input type="file" id="file" accept=".pcap,.pcapng" hidden>
-  <span class="msg" id="msg">Replays a real port scan recorded on a live machine.</span>
-</div>
-
-<main>
-  <section class="view on" id="v-overview">
-    <div class="hero">
-      <div>
-        <div class="figure" id="hero-figure">0</div>
-        <div class="figure-sub" id="hero-label">Ports contacted</div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Explore network capture evidence with Guardian's two-layer intrusion detector."
+    />
+    <title>Guardian | Network intelligence</title>
+    <link rel="stylesheet" href="/static/dashboard.css" />
+    <link rel="stylesheet" href="/static/story.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23c7ef87' d='M16 2 29 7v10c0 7-13 13-13 13S3 24 3 17V7z'/%3E%3Cpath fill='none' stroke='%23141b16' stroke-width='3' d='m9 16 5 5 9-11'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body class="beginner-mode">
+    <section
+      id="intro-story"
+      class="intro-story"
+      aria-labelledby="story-heading"
+    >
+      <header class="story-header">
+        <a class="brand" href="/"><span class="brand-icon">G</span>guardian.</a
+        ><span>NETWORK SECURITY, MADE VISIBLE</span
+        ><button id="story-dashboard" class="button secondary">
+          Open full dashboard ↗
+        </button>
+      </header>
+      <main class="story-main">
+        <div class="eyebrow">A 30-SECOND EXPLANATION</div>
+        <h1 id="story-heading">
+          One connection looks ordinary.<br /><em>A thousand tell a story.</em>
+        </h1>
+        <p class="story-lead">
+          Guardian looks for warning signs in network activity. See how it spots
+          a computer checking hundreds of digital doors.
+        </p>
+        <div class="story-steps" aria-label="Explanation progress">
+          <span class="active">01 / One connection</span
+          ><span>02 / The bigger picture</span
+          ><span>03 / What Guardian found</span>
+        </div>
+        <div class="story-stage">
+          <div class="story-visual">
+            <div class="story-computer">
+              <span
+                ><svg viewBox="0 0 64 64" aria-hidden="true">
+                  <rect x="7" y="9" width="50" height="35" rx="3" />
+                  <path
+                    d="M23 55h18M32 44v11M14 18h17M14 25h25M14 32h12"
+                  /></svg></span
+              ><strong id="story-source">One computer</strong
+              ><small>Sending connection requests</small>
+            </div>
+            <div class="story-wire"><i></i><i></i><i></i><span>→</span></div>
+            <div class="story-door-side">
+              <span class="eyebrow" id="story-doors-label"
+                >A COMPUTER'S DIGITAL DOORS</span
+              >
+              <div class="story-doors" id="story-doors"></div>
+              <p id="story-visual-note">
+                A “port” is a numbered entry point for a service, such as a
+                website.
+              </p>
+            </div>
+          </div>
+          <div class="story-narration">
+            <span class="eyebrow" id="story-kicker"
+              >START WITH A REAL RECORDING</span
+            >
+            <h2 id="story-title">Would one knock catch your attention?</h2>
+            <p id="story-text">
+              Probably not. A single short connection can look completely
+              normal. The interesting part is what happens when you look at many
+              of them together.
+            </p>
+            <div id="story-evidence" class="story-evidence">
+              This demo replays a recorded scan. It does not scan your network.
+            </div>
+            <button id="story-next" class="button primary">
+              ▶ Watch the recorded scan
+            </button>
+            <p id="story-message" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+        <div class="story-takeaway" id="story-takeaway" hidden></div>
+        <div class="story-bottom">
+          <p>
+            <strong>Two perspectives.</strong> One check compares each
+            connection to examples of known attacks. Another looks for patterns
+            across connections.
+          </p>
+          <button id="story-details" class="text-link">
+            Explore the evidence yourself ↗
+          </button>
+        </div>
+        <details class="story-glossary">
+          <summary>New to networking? Three words, explained.</summary>
+          <div>
+            <p>
+              <strong>Connection:</strong> a conversation between two computers.
+            </p>
+            <p>
+              <strong>Port:</strong> a numbered door to a service on a computer.
+            </p>
+            <p>
+              <strong>Port scan:</strong> checking many doors to discover which
+              services are available. Authorised security tools do this too.
+            </p>
+          </div>
+        </details>
+      </main>
+    </section>
+    <a class="skip" href="#main">Skip to dashboard</a>
+    <aside class="rail">
+      <a class="brand" href="/" aria-label="Guardian home"
+        ><span class="brand-icon">G</span>guardian<span class="brand-period"
+          >.</span
+        ></a
+      >
+      <div class="rail-label">WORKSPACE</div>
+      <nav id="tabs" aria-label="Dashboard views">
+        <button class="tab on" data-view="overview">
+          <span class="nav-icon">◈</span>Overview<span class="nav-key">01</span>
+        </button>
+        <button class="tab" data-view="behaviour">
+          <span class="nav-icon">⌁</span>Behaviour<span
+            class="num"
+            id="n-alert"
+          ></span>
+        </button>
+        <button class="tab" data-view="connections">
+          <span class="nav-icon">⇄</span>Connections<span
+            class="num"
+            id="n-flow"
+          ></span>
+        </button>
+        <button class="tab" data-view="devices">
+          <span class="nav-icon">▣</span>Devices<span
+            class="num"
+            id="n-dev"
+          ></span>
+        </button>
+        <button class="tab" data-view="how">
+          <span class="nav-icon">◎</span>Behind the model
+        </button>
+      </nav>
+      <div class="rail-note">
+        <span class="mini-shield">◇</span
+        ><strong>Evidence over assumptions.</strong>
+        <p>One flow tells part of the story. Patterns tell the rest.</p>
+        <button id="learn-link">Explore the two layers ↗</button>
       </div>
-      <div>
-        <h2 class="verdict-t" id="hero-title">Nothing analysed yet</h2>
-        <p class="verdict-p" id="hero-text">Press <b>Run demo</b> to replay a real port scan that
-          was recorded on a live machine, or <b>Watch this network</b> to look at your own traffic
-          and see which devices are on your WiFi.</p>
-        <div class="facts" id="facts"></div>
+      <div class="rail-footer">
+        <span class="avatar">HS</span>
+        <div>Harsh Shah<small>Network security / ML</small></div>
+        <a
+          href="https://github.com/harshpro02/network-security-ml"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="View source on GitHub"
+          >↗</a
+        >
       </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <button id="simple-view" class="button secondary">← Simple view</button>
+        <div class="breadcrumb">
+          Workspace <span>/</span> <strong id="view-name">Overview</strong>
+        </div>
+        <div class="host-state" id="mode" role="status">Checking host…</div>
+      </header>
+      <main id="main" tabindex="-1">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">NETWORK INTELLIGENCE</div>
+            <h1 id="page-title">See the whole picture<span>.</span></h1>
+            <p id="page-subtitle">Follow the traffic. Understand the signal.</p>
+          </div>
+          <button id="export" class="button secondary" disabled>
+            ↓ Export analysis
+          </button>
+        </div>
+        <div class="capture-bar">
+          <div class="capture-source">
+            <span class="signal-dot"></span>
+            <div>
+              <strong id="capture-name">Your investigation starts here</strong
+              ><small id="capture-meta"
+                >Recorded replay, PCAP upload, or a local capture.</small
+              >
+            </div>
+          </div>
+          <div class="capture-actions">
+            <button id="btn-upload" class="button secondary">
+              ↑ Upload PCAP</button
+            ><button id="btn-scan" class="button secondary" disabled>
+              ◎ Local capture</button
+            ><button id="btn-demo" class="button primary" disabled>
+              <span class="spin"></span>▶ Run demo</button
+            ><input id="file" type="file" accept=".pcap,.pcapng" hidden />
+          </div>
+        </div>
+        <p id="msg" class="status-message" role="status" aria-live="polite">
+          Run the recorded port scan to see both detection layers in action.
+        </p>
+        <div id="upload-drop" class="drop-message" hidden>
+          Drop a .pcap or .pcapng capture to analyse · up to 10 MB
+        </div>
+        <div class="view on" id="v-overview">
+          <section class="summary-panel">
+            <div class="summary-copy">
+              <div class="eyebrow">
+                <span class="signal-dot"></span
+                ><span id="summary-kicker">READY TO INVESTIGATE</span>
+              </div>
+              <h2 id="hero-title">Small connections.<br />A bigger story.</h2>
+              <p id="hero-text">
+                A port scan can look ordinary one connection at a time. Replay a
+                real recording to see what the model catches and what the
+                behaviour layer reveals.
+              </p>
+              <button class="text-link" id="summary-link">
+                Explore the connections <span>↗</span>
+              </button>
+            </div>
+            <div class="signal-orbit" aria-hidden="true">
+              <div class="orbit orbit-one"></div>
+              <div class="orbit orbit-two"></div>
+              <div class="orbit orbit-three"></div>
+              <svg viewBox="0 0 100 110">
+                <path d="M50 5 88 20v32c0 27-38 48-38 48S12 79 12 52V20z" />
+                <path d="m32 51 12 12 25-29" /></svg
+              ><span class="orbit-tag">TWO LAYERS. ONE PICTURE.</span>
+            </div>
+            <div class="summary-number">
+              <span class="figure" id="hero-figure">—</span
+              ><span id="hero-label">ports observed</span
+              ><small>Ports in scored flows</small>
+            </div>
+          </section>
+          <div class="metrics" id="facts">
+            <div class="metric">
+              <span>Conversations</span><strong>—</strong
+              ><small>Bidirectional flows</small>
+            </div>
+            <div class="metric">
+              <span>Model flags</span><strong>—</strong
+              ><small>Individual flow verdicts</small>
+            </div>
+            <div class="metric">
+              <span>Behaviour alerts</span><strong>—</strong
+              ><small>Patterns across flows</small>
+            </div>
+            <div class="metric">
+              <span>Packets read</span><strong>—</strong
+              ><small>From the selected capture</small>
+            </div>
+          </div>
+          <div class="chart-grid">
+            <section class="panel port-panel">
+              <div class="panel-head">
+                <div>
+                  <span class="eyebrow">TRAFFIC EXPLORER</span>
+                  <h2>Connections over time</h2>
+                </div>
+                <span id="map-count" class="pill">No capture loaded</span>
+              </div>
+              <div class="chartbox chart-empty" id="map">
+                <div class="empty-chart">
+                  <span>⌁</span><strong>Your traffic, mapped.</strong>
+                  <p>Load a capture to explore destination ports over time.</p>
+                </div>
+              </div>
+              <div class="playback">
+                <button
+                  id="play"
+                  class="icon-button"
+                  disabled
+                  aria-label="Play capture visualization"
+                >
+                  ▶</button
+                ><label class="sr-only" for="scrubber"
+                  >Capture visualization position</label
+                ><input
+                  id="scrubber"
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="100"
+                  disabled
+                /><output id="play-time">— / —</output>
+              </div>
+              <div class="chart-legend">
+                <span><i></i>Model: benign</span
+                ><span><i class="bad"></i>Model: attack</span
+                ><span class="legend-note"
+                  >Replay visualization, not a live feed</span
+                >
+              </div>
+            </section>
+            <section class="panel layers-panel">
+              <div class="panel-head">
+                <div>
+                  <span class="eyebrow">DETECTION COVERAGE</span>
+                  <h2>Two ways to see it</h2>
+                </div>
+                <span class="small-icon">◎</span>
+              </div>
+              <div class="layer-row">
+                <span class="layer-index">01</span>
+                <div>
+                  <strong>Flow model</strong>
+                  <p>Does this conversation resemble a known attack?</p>
+                </div>
+                <span id="layer-model" class="layer-count">—</span>
+              </div>
+              <div class="layer-row">
+                <span class="layer-index">02</span>
+                <div>
+                  <strong>Behaviour rules</strong>
+                  <p>Do connections form an unusual pattern?</p>
+                </div>
+                <span id="layer-behaviour" class="layer-count">—</span>
+              </div>
+              <div class="insight" id="layer-insight">
+                <span>THE IMPORTANT DIFFERENCE</span>
+                <p>
+                  A quiet-looking flow can be part of a noisy pattern. Neither
+                  layer tells the full story alone.
+                </p>
+              </div>
+              <button class="text-link" id="behaviour-link">
+                Inspect behaviour alerts ↗
+              </button>
+            </section>
+          </div>
+          <div class="chart-grid lower-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <span class="eyebrow">CAPTURE ACTIVITY</span>
+                  <h2>Forward packets over time</h2>
+                </div>
+              </div>
+              <div class="chartbox" id="timeline">
+                <p class="empty">Packet activity will appear after analysis.</p>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <span class="eyebrow">PAYLOAD VOLUME</span>
+                  <h2>Top destinations</h2>
+                </div>
+              </div>
+              <div id="talkers">
+                <p class="empty">Destination volumes will appear here.</p>
+              </div>
+            </section>
+          </div>
+        </div>
+        <div class="view" id="v-behaviour">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">BEYOND THE INDIVIDUAL FLOW</span>
+                <h2>Patterns worth investigating</h2>
+              </div>
+              <span class="pill" id="beh-count">No capture</span>
+            </div>
+            <p class="section-intro">
+              Rule-based observations, separate from model verdicts. A pattern
+              is evidence to investigate, not proof of malicious intent.
+            </p>
+            <div id="alerts">
+              <p class="empty">
+                Load a capture to inspect cross-flow patterns.
+              </p>
+            </div>
+          </section>
+        </div>
+        <div class="view" id="v-connections">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">FLOW EXPLORER</span>
+                <h2>Every conversation has a story</h2>
+              </div>
+              <span class="pill" id="conn-count">No capture</span>
+            </div>
+            <div class="filters">
+              <label class="search-field"
+                ><span>⌕</span
+                ><input
+                  id="flow-search"
+                  type="search"
+                  placeholder="Search IP address, port or verdict"
+                  aria-label="Search returned connections" /></label
+              ><select id="verdict-filter" aria-label="Filter by model verdict">
+                <option value="all">All verdicts</option>
+                <option value="attack">Model flags</option>
+                <option value="benign">Model benign</option></select
+              ><select id="protocol-filter" aria-label="Filter by protocol">
+                <option value="all">All protocols</option>
+                <option value="6">TCP</option>
+                <option value="17">UDP</option>
+                <option value="1">ICMP</option></select
+              ><select id="flow-sort" aria-label="Sort connections">
+                <option value="flagged">Flagged first</option>
+                <option value="packets">Most packets</option>
+                <option value="time">Earliest first</option>
+                <option value="port">Destination port</option>
+              </select>
+            </div>
+            <p id="flow-scope" class="scope-note">
+              Filters apply to returned flows, up to 200 per analysis. Charts
+              cover the full scored capture.
+            </p>
+            <div class="tablewrap" id="flows">
+              <p class="empty">Run an analysis to explore individual flows.</p>
+            </div>
+          </section>
+        </div>
+        <div class="view" id="v-devices">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <span class="eyebrow">PASSIVE OBSERVATIONS</span>
+                <h2>Devices in the capture</h2>
+              </div>
+              <span class="pill" id="dev-count">No capture</span>
+            </div>
+            <p class="section-intro">
+              Only devices visible to the capture are listed. This is not a
+              complete network inventory.
+            </p>
+            <div id="devices">
+              <p class="empty">Load a capture to see observed devices.</p>
+            </div>
+          </section>
+        </div>
+        <div class="view" id="v-how">
+          <section class="panel method-panel">
+            <div class="eyebrow">THE ENGINE UNDERNEATH</div>
+            <h2>Detection is a question of perspective.</h2>
+            <p class="section-intro">
+              Guardian combines a per-flow random forest with cross-flow rules.
+              The model is trained on a 500,000-row sample of CICIDS2017;
+              dataset test performance does not guarantee performance on a new
+              network.
+            </p>
+            <div class="steps">
+              <article>
+                <span>01 / CAPTURE</span>
+                <h3>Packets become flows.</h3>
+                <p>
+                  Packets in both directions are grouped into conversations. A
+                  flow closes on TCP teardown or expires after 120 seconds.
+                </p>
+              </article>
+              <article>
+                <span>02 / CLASSIFY</span>
+                <h3>Four features. One verdict.</h3>
+                <p>
+                  Duration, forward packet count, forward payload bytes and
+                  average packet size feed the binary detector. A separate
+                  classifier names only attack types that passed a measured
+                  precision gate.
+                </p>
+              </article>
+              <article>
+                <span>03 / CORRELATE</span>
+                <h3>The pattern comes into focus.</h3>
+                <p>
+                  Rules look for distinct ports, distinct hosts and regular
+                  connection intervals. Legitimate scanners, telemetry and
+                  update checks can also trigger these patterns.
+                </p>
+              </article>
+            </div>
+            <div class="method-result">
+              <strong>2 / 1,029</strong>
+              <div>
+                <h3>The model's blind spot became the lesson.</h3>
+                <p>
+                  On the bundled scan, only two conversations were model flags.
+                  The behaviour layer detected the wider scan pattern. The
+                  numbers and limitations are documented in the repository.
+                </p>
+              </div>
+            </div>
+            <a
+              class="text-link"
+              href="https://github.com/harshpro02/network-security-ml#results"
+              target="_blank"
+              rel="noreferrer"
+              >Read the evaluation and tradeoffs ↗</a
+            >
+          </section>
+        </div>
+        <footer class="page-footer">
+          <span>GUARDIAN / NETWORK INTELLIGENCE</span
+          ><span id="footer-source"
+            >No capture loaded · No background capture</span
+          >
+        </footer>
+      </main>
     </div>
-    <div class="strip" id="strip"></div>
-  </section>
-
-  <section class="view on" id="v-overview-chart">
-    <div class="shead"><span>Ports contacted over time</span><span id="map-count"></span></div>
-    <div class="chartbox" id="map"></div>
-    <div class="legend"><span><i class="k-ok"></i>Rated normal</span><span><i class="k-bad"></i>Rated an attack</span></div>
-    <p class="caption" id="map-caption">Each dot will be one connection. Its height is the port it
-      reached, left to right is when it happened.</p>
-  </section>
-
-  <section class="view on" id="v-overview-time">
-    <div class="shead"><span>Traffic over time</span></div>
-    <div class="chartbox" id="timeline"></div>
-  </section>
-
-  <section class="view" id="v-devices">
-    <div class="shead"><span>Devices seen on this network</span><span id="dev-count"></span></div>
-    <div id="devices"><p class="empty">Nothing analysed yet. Press <b>Watch this network</b> to
-      listen for the devices around you.</p></div>
-    <p class="caption">Devices are found by listening, not by probing. Anything on the network
-      announces itself eventually, which is how the two devices above were found even though they
-      never answered a direct request. Encrypted traffic between other devices cannot be read
-      from here, and no tool running on a laptop can read it.</p>
-  </section>
-
-  <section class="view" id="v-behaviour">
-    <div class="shead"><span>Patterns across connections</span><span id="beh-count"></span></div>
-    <div id="alerts"><p class="empty">Nothing analysed yet.</p></div>
-  </section>
-
-  <section class="view" id="v-connections">
-    <div class="shead"><span>Every conversation, scored one at a time</span><span id="conn-count"></span></div>
-    <div class="tablewrap" id="flows"><p class="empty">Nothing analysed yet.</p></div>
-  </section>
-
-  <section class="view" id="v-destinations-placeholder" style="display:none"></section>
-
-  <section class="view" id="v-how">
-    <div class="steps">
-      <div><div class="num">Step 1</div><h3>Capture the traffic</h3>
-        <p>Raw packets are read off the network card and grouped into conversations, called flows.
-           One flow is one machine talking to one port on another machine.</p></div>
-      <div><div class="num">Step 2</div><h3>Score every conversation</h3>
-        <p>A random forest trained on 2.8 million labelled records judges each flow on its duration,
-           size and packet count. It catches floods and brute force attempts.</p></div>
-      <div><div class="num">Step 3</div><h3>Watch the bigger picture</h3>
-        <p>Some attacks look ordinary one flow at a time. A second layer compares flows against
-           each other, which is the only way a port scan or a beacon becomes visible.</p></div>
-    </div>
-  </section>
-
-  <section class="view" id="v-how-2">
-    <div class="shead"><span>Why two layers</span></div>
-    <div class="prose">
-      <p>A single connection to a closed port is four numbers: almost no duration, one packet, no
-      data. A single ordinary connection is the same four numbers. <b>No model can separate them</b>,
-      because the difference is not in the connection, it is in the pattern. One machine touching a
-      thousand ports in a minute is an attack. The same machine touching three is a browser.</p>
-      <p>Tested against a real port scan captured on a live machine, the model alone caught
-      <b>2 conversations out of 1,029</b>. The behaviour layer caught the scan outright. Both numbers
-      are in the repository, along with the three train-and-serve mismatches found while chasing
-      the gap, and a day-held-out evaluation showing the usual accuracy figure for this dataset is
-      mostly memorisation.</p>
-    </div>
-  </section>
-</main>
-
-<script src="/static/charts.js"></script>
-<script>
-const PROTO = { 1: "ICMP", 6: "TCP", 17: "UDP" };
-const ROW_CAP = 250;
-const BTNS = ["btn-demo", "btn-upload", "btn-scan"];
-const GROUPS = {
-  overview: ["v-overview", "v-overview-chart", "v-overview-time"],
-  devices: ["v-devices"],
-  behaviour: ["v-behaviour"],
-  connections: ["v-connections"],
-  how: ["v-how", "v-how-2"],
-};
-const $ = id => document.getElementById(id);
-let liveOff = false;
-
-const esc = s => String(s).replace(/[&<>"']/g, c =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-const bytes = n =>
-  n < 1024 ? n + " B" :
-  n < 1048576 ? (n / 1024).toFixed(1) + " KB" :
-  (n / 1048576).toFixed(1) + " MB";
-
-document.querySelectorAll(".tab").forEach(t => t.onclick = () => show(t.dataset.view));
-
-function show(view) {
-  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.dataset.view === view));
-  const wanted = new Set(GROUPS[view]);
-  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", wanted.has(s.id)));
-  window.scrollTo(0, 0);
-}
-
-function setBusy(id, busy, msg) {
-  BTNS.forEach(b => {
-    $(b).disabled = busy || (b === "btn-scan" && liveOff);
-    $(b).classList.toggle("busy", busy && b === id);
-  });
-  if (msg) $("msg").textContent = msg;
-}
-
-function alertRecords(alerts) {
-  if (!alerts.length) {
-    return `<p class="empty">Nothing unusual across the connections as a group. A port scan, a
-      sweep of the network, a device that has never been here before, or software checking in on
-      a fixed timer would all be listed here.</p>`;
-  }
-  return alerts.map(a => {
-    let kind, title, body;
-    if (a.kind === "beacon") {
-      kind = "Beacon";
-      title = `Something is checking in with ${esc(a.target)} on a timer.`;
-      body = `It connected <b>${a.count}</b> times, once every <b>${a.interval_seconds} seconds</b>,
-        varying by only ${(a.jitter * 100).toFixed(0)}%. People do not browse that evenly. Software
-        calling home does, which can be an update checker or something waiting for instructions.`;
-    } else if (a.kind === "host_sweep") {
-      kind = "Host sweep";
-      title = `${esc(a.source)} went looking for other machines on this network.`;
-      body = `It contacted <b>${a.count.toLocaleString()} different devices</b> in ${a.window_seconds}
-        seconds, which is how an intruder maps out what else is reachable once they are inside.`;
-    } else if (a.kind === "new_device") {
-      kind = "New device";
-      title = `${esc(a.vendor || "An unrecognised device")} joined this network.`;
-      body = `It was seen at <b>${esc(a.source)}</b> and has not been here in any earlier capture.
-        On a home network that is usually a phone or a visitor. It is worth a look when it is not.`;
-    } else {
-      kind = "Port scan";
-      title = `${esc(a.source)} tried the doors on ${esc(a.target)}, one after another.`;
-      body = `It reached <b>${a.count.toLocaleString()} different ports</b> in ${a.window_seconds}
-        seconds. Ordinary traffic touches a handful. Trying thousands is how an attacker finds which
-        services are running before picking one to break into.`;
-    }
-    return `<div class="rec"><div class="kind">${kind}</div>
-      <div><h3>${title}</h3><p>${body}</p></div></div>`;
-  }).join("");
-}
-
-function deviceList(devices) {
-  if (!devices.length) {
-    return `<p class="empty">No devices seen. A recorded file made on one machine will only ever
-      contain that machine. Press <b>Watch this network</b> to listen live.</p>`;
-  }
-  return devices.map(d => {
-    const name = d.hostname || d.vendor || "Unrecognised device";
-    const ip = d.ips[0] || "no address seen";
-    const chips = [
-      d.role === "gateway" ? `<span class="chip solid">Router</span>` : "",
-      d.randomised_mac ? `<span class="chip">Randomised MAC</span>` : "",
-    ].join("");
-    return `<div class="dev">
-      <div><div class="name">${esc(name)}${chips}</div>
-        <div class="meta">${esc(ip)} &nbsp;&middot;&nbsp; ${esc(d.mac)}</div></div>
-      <div class="right"><div class="amt">${bytes(d.bytes)}</div>
-        <div class="amtk">${d.packets.toLocaleString()} packets</div></div>
-    </div>`;
-  }).join("");
-}
-
-function render(d) {
-  const flows = d.flows || [], alerts = d.alerts || [], points = d.points || [];
-  const devices = d.devices || [];
-  const bad = d.threat_count || 0;
-  const total = d.flow_count ?? flows.length;
-  const ok = total - bad;
-  const pct = total ? (bad / total) * 100 : 0;
-  const ports = new Set(points.map(p => p[1])).size;
-  const attacked = alerts.length > 0 || bad > 0;
-  const scanned = alerts.some(a => a.kind === "port_scan");
-
-  $("n-dev").textContent = devices.length || "";
-  $("n-alert").textContent = alerts.length || "";
-  $("n-flow").textContent = total ? total.toLocaleString() : "";
-  $("dev-count").textContent = devices.length ? `${devices.length} found` : "";
-  $("beh-count").textContent = alerts.length ? `${alerts.length} found` : "none";
-  $("conn-count").textContent = total ? `${total.toLocaleString()} total` : "";
-
-  if (scanned) {
-    $("hero-figure").textContent = ports.toLocaleString();
-    $("hero-label").textContent = "Ports contacted";
-    $("hero-title").textContent = "This machine was scanned.";
-    $("hero-text").innerHTML = `Guardian read <b>${(d.packets_read || 0).toLocaleString()} packets</b>
-      and sorted them into <b>${total.toLocaleString()} conversations</b>. Almost every one looks
-      ordinary on its own, and the model rated them that way. Together they are an attack: something
-      worked through <b>${ports.toLocaleString()} different ports</b> in about a minute, which is how
-      an intruder finds a way in.`;
-  } else if (attacked) {
-    $("hero-figure").textContent = (bad + alerts.length).toLocaleString();
-    $("hero-label").textContent = "Things worth a look";
-    $("hero-title").textContent = "Something here needs attention.";
-    $("hero-text").innerHTML = `Out of <b>${total.toLocaleString()}</b> conversations,
-      <b>${bad}</b> matched patterns learned from known attacks and <b>${alerts.length}</b>
-      pattern${alerts.length === 1 ? "" : "s"} stood out across the traffic as a whole.`;
-  } else {
-    $("hero-figure").textContent = devices.length || total.toLocaleString();
-    $("hero-label").textContent = devices.length ? "Devices on this network" : "Conversations";
-    $("hero-title").textContent = "Nothing here looks like an attack.";
-    $("hero-text").innerHTML = `Guardian read <b>${(d.packets_read || 0).toLocaleString()} packets</b>
-      across <b>${total.toLocaleString()} conversations</b>${devices.length
-        ? ` from <b>${devices.length} device${devices.length === 1 ? "" : "s"}</b>` : ""} and found
-      nothing resembling a known attack, and no suspicious pattern across them either.`;
-  }
-
-  $("facts").innerHTML = `
-    <div class="fact"><div class="v">${total.toLocaleString()}</div><div class="k">Conversations</div></div>
-    <div class="fact"><div class="v">${bad.toLocaleString()}</div><div class="k">Rated an attack by the model</div></div>
-    <div class="fact"><div class="v">${alerts.length}</div><div class="k">Behaviour alerts</div></div>
-    <div class="fact"><div class="v">${devices.length}</div><div class="k">Devices seen</div></div>
-    <div class="fact"><div class="v">${(d.packets_read || 0).toLocaleString()}</div><div class="k">Packets read</div></div>`;
-
-  $("strip").innerHTML =
-    `${ok ? `<span class="ok" style="width:${(ok / (total || 1)) * 100}%"></span>` : ""}
-     ${bad ? `<span class="bad" style="width:${Math.max(pct, 0.5)}%"></span>` : ""}`;
-
-  $("map").innerHTML = portMap(points);
-  $("map-count").textContent = `${points.length.toLocaleString()} connections`;
-  $("map-caption").innerHTML = ports > 200
-    ? `<b>Each dot is one connection.</b> The climbing line is one machine working through the ports
-       in order, which is what a scan looks like. Five minutes of ordinary browsing on this network
-       touched <b>3</b> ports.`
-    : `<b>Each dot is one connection.</b> This traffic used <b>${ports.toLocaleString()}</b> ports,
-       clustered where normal software sits. A scan would fill the chart bottom to top.`;
-  $("timeline").innerHTML = timeline(points);
-
-  $("devices").innerHTML = deviceList(devices);
-  $("alerts").innerHTML = alertRecords(alerts);
-
-  const ordered = [...flows].sort((a, b) => (b.is_threat - a.is_threat) || (b.packets - a.packets));
-  const shown = ordered.slice(0, ROW_CAP);
-  $("flows").innerHTML = `<table>
-    <thead><tr><th>Source</th><th>Destination</th><th>Protocol</th>
-      <th class="n">Packets</th><th class="n">Volume</th><th class="n">Duration</th><th>Verdict</th></tr></thead>
-    <tbody>${shown.map(f => `<tr class="${f.is_threat ? "hi" : ""}">
-      <td class="mono">${esc(f.source)}:${f.src_port}</td>
-      <td class="mono">${esc(f.destination)}:${f.dst_port}</td>
-      <td>${PROTO[f.protocol] || "IP/" + f.protocol}</td>
-      <td class="n">${f.packets.toLocaleString()}</td>
-      <td class="n">${bytes(f.bytes)}</td>
-      <td class="n">${f.duration_sec.toFixed(2)}s</td>
-      <td><span class="vtag ${f.is_threat ? "bad" : ""}"><i></i>${
-        esc(f.attack_type ? f.attack_type : f.is_threat ? "Suspicious" : "Normal")}</span></td>
-    </tr>`).join("")}</tbody></table>
-    ${total > shown.length ? `<p class="caption">Showing ${shown.length} of ${total.toLocaleString()},
-      flagged first then busiest.</p>` : ""}`;
-
-  $("msg").textContent = attacked
-    ? `An attack was found in ${total.toLocaleString()} conversations.`
-    : `No attack found in ${total.toLocaleString()} conversations.`;
-}
-
-async function call(id, url, opts, msg) {
-  setBusy(id, true, msg);
-  try {
-    const res = await fetch(url, opts);
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) $("msg").textContent = body.detail || res.statusText;
-    else render(body);
-  } catch (err) {
-    $("msg").textContent = err.message;
-  } finally {
-    setBusy(id, false, "");
-  }
-}
-
-$("btn-demo").onclick = () => call("btn-demo", "/api/demo", {}, "Replaying a recorded attack…");
-$("btn-scan").onclick = () => call("btn-scan", "/api/scan", {}, "Listening to this network for 30 seconds…");
-$("btn-upload").onclick = () => $("file").click();
-
-$("file").onchange = e => {
-  const f = e.target.files[0];
-  if (!f) return;
-  const form = new FormData();
-  form.append("file", f);
-  call("btn-upload", "/api/analyze", { method: "POST", body: form }, `Analysing ${f.name}…`);
-  e.target.value = "";
-};
-
-fetch("/api/health").then(r => r.json()).then(h => {
-  $("mode").innerHTML = h.live_capture ? '<span class="dot on"></span>LIVE' : '<span class="dot"></span>HOSTED';
-  if (!h.live_capture) {
-    liveOff = true;
-    $("btn-scan").disabled = true;
-    $("btn-scan").title = "Watching a network needs a real network card, which a cloud server does not have";
-  }
-  if (!h.demo_available) $("btn-demo").disabled = true;
-}).catch(() => { $("mode").innerHTML = '<span class="dot"></span>OFFLINE'; });
-</script>
-</body>
+    <dialog id="flow-dialog" aria-labelledby="flow-title">
+      <div class="dialog-head">
+        <span class="eyebrow">CONNECTION INSPECTOR</span
+        ><button
+          id="close-flow"
+          class="icon-button"
+          aria-label="Close connection details"
+        >
+          ✕
+        </button>
+      </div>
+      <h2 id="flow-title">Connection details</h2>
+      <div id="flow-detail"></div>
+    </dialog>
+    <script src="/static/charts.js"></script>
+    <script src="/static/records.js"></script>
+    <script src="/static/dashboard.js"></script>
+    <script src="/static/story.js"></script>
+  </body>
 </html>
